@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bookstore MongoDB — โค้ดประกอบการสอน</title>
+<meta name="description" content="ตัวอย่างประกอบการสอน MongoDB ใน 3 ชั่วโมง: Node.js driver, Express + Mongoose และ ACID transaction (ร้านหนังสือ)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  --bg: #F6F8F4; --panel: #FCFDFB; --ink: #17261F; --body: #3F5249; --muted: #5E7067; --line: #D7E2DA;
+  --acc: #1E7A48; --acc-soft: #E3ECE5; --code-bg: #10201A; --code-ink: #E4EFE8;
+  --c: #8FA89B; --s: #F2C572; --k: #8DB8E6; --f: #7FD8A6; --n: #F0A87A; --o: #E6A6D8;
+  --sans: 'IBM Plex Sans Thai', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'IBM Plex Sans Thai', monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1F1A; --panel: #14271F; --ink: #EEF4EF; --body: #B9CCC0; --muted: #8FA89B; --line: #28423A;
+    --acc: #6FD39A; --acc-soft: #17302A; --code-bg: #0A1612; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1F1A; --panel: #14271F; --ink: #EEF4EF; --body: #B9CCC0; --muted: #8FA89B; --line: #28423A;
+  --acc: #6FD39A; --acc-soft: #17302A; --code-bg: #0A1612; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.65 var(--sans); }
+a { color: var(--acc); }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 100vh; }
+aside.side { position: sticky; top: 0; height: 100vh; overflow: auto; border-right: 1px solid var(--line); padding: 24px 16px; background: var(--panel); }
+.brand { font-weight: 700; font-size: 18px; margin: 0 8px 4px; }
+.brand small { display: block; font-weight: 400; font-size: 13px; color: var(--muted); }
+.search { width: 100%; margin: 16px 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 14px; }
+.nav-top, .nav-part { display: block; padding: 6px 8px; font-weight: 600; color: var(--ink); text-decoration: none; border-radius: 6px; font-size: 14px; }
+.nav-group { margin-top: 12px; }
+.nav-file { display: block; padding: 3px 8px 3px 20px; color: var(--body); text-decoration: none; font: 13px/1.6 var(--mono); border-radius: 6px; }
+.nav-file:hover, .nav-part:hover, .nav-top:hover { background: var(--acc-soft); }
+.nav-file.hide { display: none; }
+main { padding: 40px clamp(16px, 4vw, 56px) 80px; max-width: 1100px; }
+.hero { padding: 32px; border-radius: 16px; background: var(--code-bg); color: #EEF4EF; margin-bottom: 40px; }
+.hero .eyebrow { color: #6FD39A; font-weight: 600; letter-spacing: .08em; font-size: 13px; text-transform: uppercase; }
+.hero h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.2; margin: 8px 0 8px; }
+.hero p { color: #B9CCC0; margin: 0 0 20px; }
+.hero .file { margin: 0; border-color: #28423A; }
+.hero .file-bar { background: #17302A; color: #B9CCC0; border-color: #28423A; }
+.hero .fname { color: #DCE8E0; }
+.warn { margin-top: 16px; padding: 10px 14px; border-radius: 8px; background: #3A2E14; color: #F2C572; font-size: 14px; }
+.sec { margin-bottom: 56px; }
+.sec > h2 { font-size: 26px; margin: 0 0 4px; }
+.lead { color: var(--body); margin: 0 0 20px; }
+.file { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin: 0 0 24px; background: var(--code-bg); }
+.file-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.fname { font: 600 14px var(--mono); color: var(--ink); word-break: break-all; }
+.meta { font-size: 13px; color: var(--muted); }
+.grow { flex: 1; }
+.desc { margin: 0; padding: 8px 14px; font-size: 14px; color: var(--body); background: var(--panel); border-bottom: 1px solid var(--line); }
+.gh { font-size: 13px; text-decoration: none; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; }
+.copy { font: 600 13px var(--sans); padding: 5px 12px; border-radius: 6px; border: 1px solid var(--acc); background: var(--acc); color: #FCFDFB; cursor: pointer; }
+:root[data-theme="dark"] .copy { color: #0F1F1A; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .copy { color: #0F1F1A; } }
+.copy.done { background: transparent; color: var(--acc); }
+pre.code { margin: 0; padding: 14px 0; overflow-x: auto; background: var(--code-bg); color: var(--code-ink); font: 13.5px/1.6 var(--mono); tab-size: 2; }
+pre.code code { display: block; counter-reset: ln; min-width: max-content; }
+pre.code .ln { display: block; padding: 0 18px 0 0; white-space: pre; }
+pre.code .ln::before { counter-increment: ln; content: counter(ln); display: inline-block; width: 3.2em; padding-right: 1.2em; text-align: right; color: #4E6A5E; user-select: none; }
+.file.mini pre.code .ln::before, pre.code.small .ln::before { content: none; }
+.file.mini pre.code, pre.code.small { padding-left: 16px; padding-right: 16px; }
+.c { color: var(--c); font-style: italic; } .s { color: var(--s); } .k { color: var(--k); } .f { color: var(--f); } .n { color: var(--n); } .o { color: var(--o); }
+.steps { display: grid; gap: 16px; }
+.step { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 14px; align-items: start; }
+.num { width: 36px; height: 36px; border-radius: 50%; background: var(--acc-soft); color: var(--acc); display: grid; place-items: center; font-weight: 700; }
+.step h3 { margin: 4px 0 8px; font-size: 17px; }
+.step .file { margin: 0; }
+.doc { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 28px 20px; margin-bottom: 24px; }
+.doc h2 { font-size: 22px; } .doc h3 { font-size: 18px; margin-top: 24px; }
+.doc code { font: 13.5px var(--mono); background: var(--acc-soft); padding: 1px 5px; border-radius: 4px; }
+.doc pre code { background: none; padding: 0; }
+.doc pre.code { border-radius: 8px; }
+.tbl { overflow-x: auto; }
+.doc table { border-collapse: collapse; margin: 12px 0; min-width: 100%; font-size: 15px; }
+.doc th, .doc td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; vertical-align: top; }
+.doc th { background: var(--acc-soft); }
+.theme { margin: 16px 8px 0; font: 13px var(--sans); background: none; border: 1px solid var(--line); color: var(--body); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+footer { color: var(--muted); font-size: 13px; }
+@media (max-width: 860px) {
+  .layout { display: block; }
+  aside.side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  .nav-file { display: inline-block; padding-left: 8px; }
+  main { padding-top: 24px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside class="side">
+  <div class="brand">Bookstore MongoDB<small>เรียน MongoDB ใน 3 ชั่วโมง</small></div>
+  <input class="search" type="search" placeholder="ค้นหาไฟล์…" aria-label="ค้นหาไฟล์">
+  <nav><a class="nav-top" href="#start">เริ่มต้นใช้งาน</a><div class="nav-group"><a class="nav-part" href="#part1">Part 1 · MongoDB Basic (Node.js driver)</a><a class="nav-file" href="#f-db-js" data-path="db.js">db.js</a><a class="nav-file" href="#f-01-connect-js" data-path="01-connect.js">01-connect.js</a><a class="nav-file" href="#f-02-insert-js" data-path="02-insert.js">02-insert.js</a><a class="nav-file" href="#f-03-find-js" data-path="03-find.js">03-find.js</a><a class="nav-file" href="#f-04-operators-js" data-path="04-operators.js">04-operators.js</a><a class="nav-file" href="#f-05-update-js" data-path="05-update.js">05-update.js</a><a class="nav-file" href="#f-06-delete-js" data-path="06-delete.js">06-delete.js</a><a class="nav-file" href="#f-part1-mongosh-js" data-path="part1-mongosh.js">part1-mongosh.js</a></div><div class="nav-group"><a class="nav-part" href="#part2">Part 2–3 · app.js</a><a class="nav-file" href="#f-app-js" data-path="app.js">app.js</a></div><div class="nav-group"><a class="nav-part" href="#frontend">Frontend · public/index.html</a><a class="nav-file" href="#f-public-index-html" data-path="public/index.html">index.html</a></div><div class="nav-group"><a class="nav-part" href="#config">ไฟล์ตั้งค่า</a><a class="nav-file" href="#f-package-json" data-path="package.json">package.json</a><a class="nav-file" href="#f-docker-compose-yml" data-path="docker-compose.yml">docker-compose.yml</a></div><div class="nav-group"><a class="nav-part" href="#homework">การบ้าน · ระบบแล็บ</a></div></nav>
+  <button class="theme" type="button">สลับธีม สว่าง / มืด</button>
+</aside>
+<main>
+  <header class="hero">
+    <div class="eyebrow">Full-stack with MongoDB</div>
+    <h1>ระบบร้านหนังสือ — โค้ดทุกไฟล์</h1>
+    <p>ตัวอย่างประกอบการสอน MongoDB ใน 3 ชั่วโมง: Node.js driver, Express + Mongoose และ ACID transaction (ร้านหนังสือ) · กด “คัดลอก” ที่มุมขวาของแต่ละไฟล์ แล้ววางในโปรเจกต์ของตัวเอง</p>
+    <div class="file mini"><div class="file-bar"><span class="fname">clone ทั้งโปรเจกต์</span><span class="grow"></span><button class="copy" type="button">คัดลอก</button></div>
+    <pre class="code"><code>git clone https://github.com/&lt;account&gt;/bookstore-mongodb.git</code></pre><textarea class="raw" hidden readonly>git clone https://github.com/&lt;account&gt;/bookstore-mongodb.git</textarea></div>
+    <div class="warn">ยังไม่ได้ตั้งค่า repository: แก้ "repository.url" ใน package.json เป็น URL ของ GitHub จริง แล้วรัน npm run docs ใหม่</div>
+  </header>
+  <section id="start" class="sec"><h2>เริ่มต้นใช้งาน</h2><div class="steps"><div class="step"><div class="num">1</div><div class="step-body"><h3>Clone โปรเจกต์</h3><div class="file mini"><div class="file-bar"><span class="fname">terminal</span><button class="copy" type="button">คัดลอก</button></div><pre class="code"><code>git clone https://github.com/&lt;account&gt;/bookstore-mongodb.git
+cd bookstore-mongodb
+npm install</code></pre><textarea class="raw" hidden readonly>git clone https://github.com/&lt;account&gt;/bookstore-mongodb.git
+cd bookstore-mongodb
+npm install</textarea></div></div></div><div class="step"><div class="num">2</div><div class="step-body"><h3>ใส่ connection string</h3><div class="file mini"><div class="file-bar"><span class="fname">terminal</span><button class="copy" type="button">คัดลอก</button></div><pre class="code"><code><span class="c"># แก้ const uri ใน db.js และ app.js</span>
+const uri = 'mongodb+srv://&lt;db_user&gt;:&lt;db_password&gt;@&lt;cluster&gt;.mongodb.net/?appName=Cluster0';</code></pre><textarea class="raw" hidden readonly># แก้ const uri ใน db.js และ app.js
+const uri = 'mongodb+srv://&lt;db_user&gt;:&lt;db_password&gt;@&lt;cluster&gt;.mongodb.net/?appName=Cluster0';</textarea></div></div></div><div class="step"><div class="num">3</div><div class="step-body"><h3>Part 1: ทดสอบด้วย Node.js</h3><div class="file mini"><div class="file-bar"><span class="fname">terminal</span><button class="copy" type="button">คัดลอก</button></div><pre class="code"><code>node 01-connect.js
+node 02-insert.js
+node 03-find.js</code></pre><textarea class="raw" hidden readonly>node 01-connect.js
+node 02-insert.js
+node 03-find.js</textarea></div></div></div><div class="step"><div class="num">4</div><div class="step-body"><h3>Part 2–3: เปิด API + หน้าเว็บ</h3><div class="file mini"><div class="file-bar"><span class="fname">terminal</span><button class="copy" type="button">คัดลอก</button></div><pre class="code"><code>npm run dev          # เปิด http://localhost:3000 แล้วกด &quot;ใส่ข้อมูลตัวอย่าง&quot;
+curl -X POST http://localhost:3000/seed   # หรือเรียก API ตรง ๆ</code></pre><textarea class="raw" hidden readonly>npm run dev          # เปิด http://localhost:3000 แล้วกด &quot;ใส่ข้อมูลตัวอย่าง&quot;
+curl -X POST http://localhost:3000/seed   # หรือเรียก API ตรง ๆ</textarea></div></div></div></div></section><section id="part1" class="sec"><h2>Part 1 · MongoDB Basic (Node.js driver)</h2><p class="lead">เชื่อมต่อด้วย db.js แล้วรันทีละไฟล์: node 01-connect.js, node 02-insert.js, …</p><article class="file" id="f-db-js" data-path="db.js"><div class="file-bar"><span class="fname">db.js</span><span class="meta">23 บรรทัด</span><span class="grow"></span><button class="copy" type="button">คัดลอก</button></div><p class="desc">เชื่อมต่อ MongoDB — ทุกไฟล์ใน Part 1 ใช้ร่วมกัน</p><pre class="code"><code><span class="ln"><span class="c">// db.js — เชื่อมต่อ MongoDB ด้วย Node.js driver (ใช้ร่วมกันทุกไฟล์ใน Part 1)</span></span><span class="ln"><span class="k">import</span> { MongoClient } <span class="k">from</span> <span class="s">'mongodb'</span>;</span><span class="ln"> </span><span class="ln"><span class="c">// Atlas → Connect → Drivers → คัดลอก connection string แล้วใส่ user / password ของตัวเอง</span></span><span class="ln"><span class="k">const</span> uri = <span class="s">'mongodb+srv://&lt;db_user&gt;:&lt;db_password&gt;@&lt;cluster&gt;.mongodb.net/?appName=Cluster0'</span>;</span><span class="ln"><span class="c">// offline: const uri = 'mongodb://127.0.0.1:27017/?directConnection=true';</span></span><span class="ln"><span class="k">const</span> client = <span class="k">new</span> <span class="f">MongoClient</span>(uri);</span><span class="ln"> </span><span class="ln"><span class="k">export</span> <span class="k">async</span> <span class="k">function</span> <span class="f">connectToMongoDB</span>() {</span><span class="ln">  <span class="k">try</span> {</span><span class="ln">    <span class="k">await</span> client.<span class="f">connect</span>();</span><span class="ln">    console.<span class="f">log</span>(<span class="s">'You successfully connected to MongoDB!'</span>);</span><span class="ln">    <span class="k">return</span> client;</span><span class="ln">  } <span class="k">catch</span> (err) {</span><span class="ln">    console.<span class="f">dir</span>(err);</span><span class="ln">    process.<span class="f">exit</span>(<span class="n">1</span>); <span class="c">// เชื่อมต่อไม่ได้ -&gt; หยุดโปรแกรม</span></span><span class="ln">  }</span><span class="ln">}</span><span class="ln"> </span><span class="ln"><span class="c">// Call this only when your application terminates</span></span><span class="ln"><span class="k">export</span> <span class="k">async</span> <span class="k">function</span> <span class="f">disconnectFromMongoDB</span>() {</span><span class="ln">  <span class="k">await</span> client.<span class="f">close</span>();</span><span class="ln">}</span></code></pre><textarea class="raw" hidden readonly>// db.js — เชื่อมต่อ MongoDB ด้วย Node.js driver (ใช้ร่วมกันทุกไฟล์ใน Part 1)
+import { MongoClient } from 'mongodb';
+
+// Atlas → Connect → Drivers → คัดลอก connection string แล้วใส่ user / password ของตัวเอง
+const uri = 'mongodb+srv://&lt;db_user&gt;:&lt;db_password&gt;@&lt;cluster&gt;.mongodb.net/?appName=Cluster0';
+// offline: const uri = 'mongodb://127.0.0.1:27017/?directConnection=true';
+const client = new MongoClient(uri);
+
+export async function connectToMongoDB() {
+  try {
+    await client.connect();
+    console.log('You successfully connected to MongoDB!');
+    return client;
+  } catch (err) {
+    console.dir(err);
+    process.exit(1); // เชื่อมต่อไม่ได้ -&gt; หยุดโปรแกรม
+  }
+}
+
+// Call this only when your application terminates
+export async function disconnectFromMongoDB() {
+  await client.close();
+}
+</textarea></article><article class="file" id="f-01-connect-js" data-path="01-connect.js"><div class="file-bar"><span class="fname">01-connect.js</span><span class="meta">10 บรรทัด</span><span class="grow"></span><button class="copy" type="button">คัดลอก</button></div><p class="desc">ทดสอบการเชื่อมต่อ (ping)</p><pre class="code"><code><span class="ln"><span class="c">// 01-connect.js — ทดสอบการเชื่อมต่อ   รัน: node 01-connect.js</span></span><span class="ln"><span class="k">import</span> { connectToMongoDB, disconnectFromMongoDB } <span class="k">from</span> <span class="s">'./db.js'</span>;</span><span class="ln"> </span><span class="ln"><span class="k">const</span> client = <span class="k">await</span> <span class="f">connectToMongoDB</span>();</span><span class="ln"> </span><span class="ln"><span class="c">// ping ไปที่ server ถ้าได้ { ok: 1 } แปลว่าพร้อมใช้งาน</span></span><span class="ln"><span class="k">const</span> result = <span class="k">await</span> client.<span class="f">db</span>(<span class="s">'admin'</span>).<span class="f">command</span>({ ping: <span class="n">1</span> });</span><span class="ln">console.<span class="f">log</span>(<span class="s">'ping:'</span>, result);</span><span class="ln"> </span><span class="ln"><span class="k">await</span> <span class="f">disconnectFromMongoDB</span>();</span></code></pre><textarea class="raw" hidden readonly>// 01-connect.js — ทดสอบการเชื่อมต่อ   รัน: node 01-connect.js
+import { connectToMongoDB, disconnectFromMongoDB } from './db.js';
+
+const client = await connectToMongoDB();
+
+// ping ไปที่ server ถ้าได้ { ok: 1 } แปลว่าพร้อมใช้งาน
+const result = await client.db('admin').command({ ping: 1 });
+console.log('ping:', result);
+
+await disconnectFromMongoDB();
+</textarea></article><article class="file" id="f-02-insert-js" data-path="02-insert.js"><div class="file-bar"><span class="fname">02-insert.js</span><span class="meta">26 บรรทัด</span><span class="grow"></span><button class="copy" type="button">คัดลอก</button></div><p class="desc">Create: insertOne / insertMany</p><pre class="code"><code><span class="ln"><span class="c">// 02-insert.js — Create   รัน: node 02-insert.js</span></span><span class="ln"><span class="k">import</span> { connectToMongoDB, disconnectFromMongoDB } <span class="k">from</span> <span class="s">'./db.js'</span>;</span><span class="ln"> </span><span class="ln"><span class="k">const</span> client = <span class="k">await</span> <span class="f">connectToMongoDB</span>();</span><span class="ln"><span class="k">const</span> books = client.<span class="f">db</span>(<span class="s">'bookstore'</span>).<span class="f">collection</span>(<span class="s">'books'</span>);</span><span class="ln"> </span><span class="ln"><span class="k">await</span> books.<span class="f">deleteMany</span>({}); <span class="c">// ล้างข้อมูลเก่า ให้รันซ้ำได้</span></span><span class="ln"> </span><span class="ln"><span class="k">const</span> one = <span class="k">await</span> books.<span class="f">insertOne</span>({</span><span class="ln">  isbn: <span class="s">'978-616-000-001-1'</span>, title: <span class="s">'เริ่มต้น MongoDB'</span>,</span><span class="ln">  price: <span class="n">350</span>, stock: <span class="n">10</span>, tags: [<span class="s">'database'</span>, <span class="s">'nosql'</span>],</span><span class="ln">  publisher: { name: <span class="s">'ดาวเหนือ'</span>, city: <span class="s">'กรุงเทพฯ'</span> }, <span class="c">// object ซ้อนได้</span></span><span class="ln">});</span><span class="ln">console.<span class="f">log</span>(<span class="s">'insertOne -&gt;'</span>, one.insertedId);</span><span class="ln"> </span><span class="ln"><span class="k">const</span> many = <span class="k">await</span> books.<span class="f">insertMany</span>([</span><span class="ln">  { isbn: <span class="s">'978-616-000-002-8'</span>, title: <span class="s">'JavaScript ฉบับเข้าใจง่าย'</span>,</span><span class="ln">    price: <span class="n">290</span>, stock: <span class="n">5</span>, tags: [<span class="s">'javascript'</span>] },</span><span class="ln">  { isbn: <span class="s">'978-616-000-003-5'</span>, title: <span class="s">'ออกแบบฐานข้อมูล'</span>,</span><span class="ln">    price: <span class="n">420</span>, stock: <span class="n">2</span>, tags: [<span class="s">'database'</span>, <span class="s">'design'</span>] },</span><span class="ln">  { isbn: <span class="s">'978-616-000-004-2'</span>, title: <span class="s">'Node.js สำหรับมือใหม่'</span>,</span><span class="ln">    price: <span class="n">390</span>, stock: <span class="n">0</span>, tags: [<span class="s">'javascript'</span>, <span class="s">'nodejs'</span>] },</span><span class="ln">]);</span><span class="ln">console.<span class="f">log</span>(<span class="s">'insertMany -&gt;'</span>, many.insertedCount, <span class="s">'เล่ม'</span>);</span><span class="ln"> </span><span class="ln"><span class="k">await</span> <span class="f">disconnectFromMongoDB</span>();</span></code></pre><textarea class="raw" hidden readonly>// 02-insert.js — Create   รัน: node 02-insert.js
+import { connectToMongoDB, disconnectFromMongoDB } from './db.js';
+
+const client = await connectToMongoDB();
+const books = client.db('bookstore').collection('books');
+
+await books.deleteMany({}); // ล้างข้อมูลเก่า ให้รันซ้ำได้
+
+const one = await books.insertOne({
+  isbn: '978-616-000-001-1', title: 'เริ่มต้น MongoDB',
+  price: 350, stock: 10, tags: ['database', 'nosql'],
+  publisher: { name: 'ดาวเหนือ', city: 'กรุงเทพฯ' }, // object ซ้อนได้
+});
+console.log('insertOne -&gt;', one.insertedId);
+
+const many = await books.insertMany([
+  { isbn: '978-616-000-002-8', title: 'JavaScript ฉบับเข้าใจง่าย',
+    price: 290, stock: 5, tags: ['javascript'] },
+  { isbn: '978-616-000-003-5', title: 'ออกแบบฐานข้อมูล',
+    price: 420, stock: 2, tags: ['database', 'design'] },
+  { isbn: '978-616-000-004-2', title: 'Node.js สำหรับมือใหม่',
+    price: 390, stock: 0, tags: ['javascript', 'nodejs'] },
+]);
+console.log('insertMany -&gt;', many.insertedCount, 'เล่ม');
+
+await disconnectFromMongoDB();
+</textarea></article><article class="file" id="f-03-find-js" data-path="03-find.js"><div class="file-bar"><span class="fname">03-find.js</span><span class="meta">26 บรรทัด</span><span class="grow"></span><button class="copy" type="button">คัดลอก</button></div><p class="desc">Read: find, filter, projection, sort, findOne</p><pre class="code"><code><span class="ln"><span class="c">// 03-find.js — Read   รัน: node 03-find.js   (รัน 02-insert.js ก่อน)</span></span><span class="ln"><span class="k">import</span> { connectToMongoDB, disconnectFromMongoDB } <span class="k">from</span> <span class="s">'./db.js'</span>;</span><span class="ln"> </span><span class="ln"><span class="k">const</span> client = <span class="k">await</span> <span class="f">connectToMongoDB</span>();</span><span class="ln"><span class="k">const</span> books = client.<span class="f">db</span>(<span class="s">'bookstore'</span>).<span class="f">collection</span>(<span class="s">'books'</span>);</span><span class="ln"> </span><span class="ln"><span class="c">// ทั้งหมด — find() คืน cursor ต้อง .toArray()</span></span><span class="ln">console.<span class="f">table</span>(<span class="k">await</span> books.<span class="f">find</span>().<span class="f">toArray</span>());</span><span class="ln"> </span><span class="ln"><span class="c">// กรองด้วยเงื่อนไข (filter)</span></span><span class="ln">console.<span class="f">table</span>(<span class="k">await</span> books.<span class="f">find</span>({ tags: <span class="s">'database'</span> }).<span class="f">toArray</span>());</span><span class="ln"> </span><span class="ln"><span class="c">// เลือกเฉพาะ field ที่จะแสดง (projection)</span></span><span class="ln"><span class="k">const</span> projection = { _id: <span class="n">0</span>, title: <span class="n">1</span>, price: <span class="n">1</span> };</span><span class="ln">console.<span class="f">table</span>(<span class="k">await</span> books.<span class="f">find</span>({ stock: { <span class="o">$gt</span>: <span class="n">0</span> } }, { projection }).<span class="f">toArray</span>());</span><span class="ln"> </span><span class="ln"><span class="c">// field ที่ซ้อนอยู่ ใช้ dot notation</span></span><span class="ln">console.<span class="f">log</span>(<span class="k">await</span> books.<span class="f">find</span>({ <span class="s">'publisher.city'</span>: <span class="s">'กรุงเทพฯ'</span> }).<span class="f">toArray</span>());</span><span class="ln"> </span><span class="ln"><span class="c">// เรียงลำดับ และจำกัดจำนวน</span></span><span class="ln">console.<span class="f">table</span>(<span class="k">await</span> books.<span class="f">find</span>().<span class="f">sort</span>({ price: -<span class="n">1</span> }).<span class="f">limit</span>(<span class="n">2</span>).<span class="f">toArray</span>());</span><span class="ln"> </span><span class="ln"><span class="c">// เอาแค่รายการเดียว</span></span><span class="ln">console.<span class="f">log</span>(<span class="k">await</span> books.<span class="f">findOne</span>({ isbn: <span class="s">'978-616-000-001-1'</span> }));</span><span class="ln"> </span><span class="ln"><span class="k">await</span> <span class="f">disconnectFromMongoDB</span>();</span></code></pre><textarea class="raw" hidden readonly>// 03-find.js — Read   รัน: node 03-find.js   (รัน 02-insert.js ก่อน)
+import { connectToMongoDB, disconnectFromMongoDB } from './db.js';
+
+const client = await connectToMongoDB();
+const books = client.db('bookstore').collection('books');
+
+// ทั้งหมด — find() คืน cursor ต้อง .toArray()
+console.table(await books.find().toArray());
+
+// กรองด้วยเงื่อนไข (filter)
+console.table(await books.find({ tags: 'database' }).toArray());
+
+// เลือกเฉพาะ field ที่จะแสดง (projection)
+const projection = { _id: 0, title: 1, price: 1 };
+console.table(await books.find({ stock: { $gt: 0 } }, { projection }).toArray());
+
+// field ที่ซ้อนอยู่ ใช้ dot notation
+console.log(await books.find({ 'publisher.city': 'กรุงเทพฯ' }).toArray());
+
+// เรียงลำดับ และจำกัดจำนวน
+console.table(await books.find().sort({ price: -1 }).limit(2).toArray());
+
+// เอาแค่รายการเดียว
+console.log(await books.findOne({ isbn: '978-616-000-001-1' }));
+
+await disconnectFromMongoDB();
+</textarea></article><article class="file" id="f-04-operators-js" data-path="04-operators.js"><div class="file-bar"><span class="fname">04-operators.js</span><span class="meta">23 บรรทัด</span><span class="grow"></span><button class="copy" type="button">คัดลอก</button></div><p class="desc">Query operators: $gte, $in, $regex, $or</p><pre class="code"><code><span class="ln"><span class="c">// 04-operators.js — Query operators   รัน: node 04-operators.js</span></span><span class="ln"><span class="k">import</span> { connectToMongoDB, disconnectFromMongoDB } <span class="k">from</span> <span class="s">'./db.js'</span>;</span><span class="ln"> </span><span class="ln"><span class="k">const</span> client = <span class="k">await</span> <span class="f">connectToMongoDB</span>();</span><span class="ln"><span class="k">const</span> books = client.<span class="f">db</span>(<span class="s">'bookstore'</span>).<span class="f">collection</span>(<span class="s">'books'</span>);</span><span class="ln"><span class="k">const</span> show = { projection: { _id: <span class="n">0</span>, title: <span class="n">1</span>, price: <span class="n">1</span>, stock: <span class="n">1</span> } };</span><span class="ln"> </span><span class="ln"><span class="c">// ราคา 300–400 บาท</span></span><span class="ln">console.<span class="f">table</span>(<span class="k">await</span> books.<span class="f">find</span>({ price: { <span class="o">$gte</span>: <span class="n">300</span>, <span class="o">$lte</span>: <span class="n">400</span> } }, show).<span class="f">toArray</span>());</span><span class="ln"> </span><span class="ln"><span class="c">// หมวด database หรือ design</span></span><span class="ln">console.<span class="f">table</span>(<span class="k">await</span> books.<span class="f">find</span>({ tags: { <span class="o">$in</span>: [<span class="s">'database'</span>, <span class="s">'design'</span>] } }, show).<span class="f">toArray</span>());</span><span class="ln"> </span><span class="ln"><span class="c">// มีของ และ ราคาต่ำกว่า 400 (AND โดยปริยาย)</span></span><span class="ln">console.<span class="f">table</span>(<span class="k">await</span> books.<span class="f">find</span>({ stock: { <span class="o">$gt</span>: <span class="n">0</span> }, price: { <span class="o">$lt</span>: <span class="n">400</span> } }, show).<span class="f">toArray</span>());</span><span class="ln"> </span><span class="ln"><span class="c">// ชื่อขึ้นต้นด้วย &quot;Java&quot;</span></span><span class="ln">console.<span class="f">table</span>(<span class="k">await</span> books.<span class="f">find</span>({ title: { <span class="o">$regex</span>: <span class="s">'^Java'</span> } }, show).<span class="f">toArray</span>());</span><span class="ln"> </span><span class="ln"><span class="c">// หมดสต็อก หรือ ราคาเกิน 400</span></span><span class="ln">console.<span class="f">table</span>(<span class="k">await</span> books.<span class="f">find</span>({ <span class="o">$or</span>: [{ stock: <span class="n">0</span> }, { price: { <span class="o">$gt</span>: <span class="n">400</span> } }] }, show).<span class="f">toArray</span>());</span><span class="ln"> </span><span class="ln"><span class="k">await</span> <span class="f">disconnectFromMongoDB</span>();</span></code></pre><textarea class="raw" hidden readonly>// 04-operators.js — Query operators   รัน: node 04-operators.js
+import { connectToMongoDB, disconnectFromMongoDB } from './db.js';
+
+const client = await connectToMongoDB();
+const books = client.db('bookstore').collection('books');
+const show = { projection: { _id: 0, title: 1, price: 1, stock: 1 } };
+
+// ราคา 300–400 บาท
+console.table(await books.find({ price: { $gte: 300, $lte: 400 } }, show).toArray());
+
+// หมวด database หรือ design
+console.table(await books.find({ tags: { $in: ['database', 'design'] } }, show).toArray());
+
+// มีของ และ ราคาต่ำกว่า 400 (AND โดยปริยาย)
+console.table(await books.find({ stock: { $gt: 0 }, price: { $lt: 400 } }, show).toArray());
+
+// ชื่อขึ้นต้นด้วย &quot;Java&quot;
+console.table(await books.find({ title: { $regex: '^Java' } }, show).toArray());
+
+// หมดสต็อก หรือ ราคาเกิน 400
+console.table(await books.find({ $or: [{ stock: 0 }, { price: { $gt: 400 } }] }, show).toArray());
+
+await disconnectFromMongoDB();
+</textarea></article><article class="file" id="f-05-update-js" data-path="05-update.js"><div class="file-bar"><span class="fname">05-update.js</span><span class="meta">26 บรรทัด</span><span class="grow"></span><button class="copy" type="button">คัดลอก</button></div><p class="desc">Update: $inc, $set, $push, updateMany</p><pre class="code"><code><span class="ln"><span class="c">// 05-update.js — Update   รัน: node 05-update.js</span></span><span class="ln"><span class="k">import</span> { connectToMongoDB, disconnectFromMongoDB } <span class="k">from</span> <span class="s">'./db.js'</span>;</span><span class="ln"> </span><span class="ln"><span class="k">const</span> client = <span class="k">await</span> <span class="f">connectToMongoDB</span>();</span><span class="ln"><span class="k">const</span> books = client.<span class="f">db</span>(<span class="s">'bookstore'</span>).<span class="f">collection</span>(<span class="s">'books'</span>);</span><span class="ln"> </span><span class="ln"><span class="c">// รับหนังสือเข้า 5 เล่ม + ปรับราคา + เพิ่ม tag</span></span><span class="ln"><span class="k">const</span> r1 = <span class="k">await</span> books.<span class="f">updateOne</span>(</span><span class="ln">  { isbn: <span class="s">'978-616-000-001-1'</span> },</span><span class="ln">  { <span class="o">$inc</span>: { stock: <span class="n">5</span> }, <span class="o">$set</span>: { price: <span class="n">320</span> }, <span class="o">$push</span>: { tags: <span class="s">'beginner'</span> } }</span><span class="ln">);</span><span class="ln">console.<span class="f">log</span>(<span class="s">'matched'</span>, r1.matchedCount, <span class="s">'modified'</span>, r1.modifiedCount);</span><span class="ln"> </span><span class="ln"><span class="c">// ขาย 2 เล่ม: ตัดสต็อกเฉพาะเมื่อมีของพอ</span></span><span class="ln"><span class="k">const</span> r2 = <span class="k">await</span> books.<span class="f">updateOne</span>(</span><span class="ln">  { isbn: <span class="s">'978-616-000-001-1'</span>, stock: { <span class="o">$gte</span>: <span class="n">2</span> } },</span><span class="ln">  { <span class="o">$inc</span>: { stock: -<span class="n">2</span> } }</span><span class="ln">);</span><span class="ln">console.<span class="f">log</span>(<span class="s">'ขายได้?'</span>, r2.modifiedCount === <span class="n">1</span>);</span><span class="ln"> </span><span class="ln"><span class="c">// ลดราคาหนังสือหมวด javascript ทุกเล่ม 10%</span></span><span class="ln"><span class="k">const</span> r3 = <span class="k">await</span> books.<span class="f">updateMany</span>({ tags: <span class="s">'javascript'</span> }, { <span class="o">$mul</span>: { price: <span class="n">0.9</span> } });</span><span class="ln">console.<span class="f">log</span>(<span class="s">'updateMany -&gt;'</span>, r3.modifiedCount, <span class="s">'เล่ม'</span>);</span><span class="ln"> </span><span class="ln">console.<span class="f">table</span>(<span class="k">await</span> books.<span class="f">find</span>({}, { projection: { _id: <span class="n">0</span>, title: <span class="n">1</span>, price: <span class="n">1</span>, stock: <span class="n">1</span> } }).<span class="f">toArray</span>());</span><span class="ln"><span class="k">await</span> <span class="f">disconnectFromMongoDB</span>();</span></code></pre><textarea class="raw" hidden readonly>// 05-update.js — Update   รัน: node 05-update.js
+import { connectToMongoDB, disconnectFromMongoDB } from './db.js';
+
+const client = await connectToMongoDB();
+const books = client.db('bookstore').collection('books');
+
+// รับหนังสือเข้า 5 เล่ม + ปรับราคา + เพิ่ม tag
+const r1 = await books.updateOne(
+  { isbn: '978-616-000-001-1' },
+  { $inc: { stock: 5 }, $set: { price: 320 }, $push: { tags: 'beginner' } }
+);
+console.log('matched', r1.matchedCount, 'modified', r1.modifiedCount);
+
+// ขาย 2 เล่ม: ตัดสต็อกเฉพาะเมื่อมีของพอ
+const r2 = await books.updateOne(
+  { isbn: '978-616-000-001-1', stock: { $gte: 2 } },
+  { $inc: { stock: -2 } }
+);
+console.log('ขายได้?', r2.modifiedCount === 1);
+
+// ลดราคาหนังสือหมวด javascript ทุกเล่ม 10%
+const r3 = await books.updateMany({ tags: 'javascript' }, { $mul: { price: 0.9 } });
+console.log('updateMany -&gt;', r3.modifiedCount, 'เล่ม');
+
+console.table(await books.find({}, { projection: { _id: 0, title: 1, price: 1, stock: 1 } }).toArray());
+await disconnectFromMongoDB();
+</textarea></article><article class="file" id="f-06-delete-js" data-path="06-delete.js"><div class="file-bar"><span class="fname">06-delete.js</span><span class="meta">19 บรรทัด</span><span class="grow"></span><button class="copy" type="button">คัดลอก</button></div><p class="desc">Delete: deleteOne / deleteMany</p><pre class="code"><code><span class="ln"><span class="c">// 06-delete.js — Delete   รัน: node 06-delete.js</span></span><span class="ln"><span class="k">import</span> { connectToMongoDB, disconnectFromMongoDB } <span class="k">from</span> <span class="s">'./db.js'</span>;</span><span class="ln"> </span><span class="ln"><span class="k">const</span> client = <span class="k">await</span> <span class="f">connectToMongoDB</span>();</span><span class="ln"><span class="k">const</span> books = client.<span class="f">db</span>(<span class="s">'bookstore'</span>).<span class="f">collection</span>(<span class="s">'books'</span>);</span><span class="ln"> </span><span class="ln"><span class="c">// ลบ 1 รายการ</span></span><span class="ln"><span class="k">const</span> r1 = <span class="k">await</span> books.<span class="f">deleteOne</span>({ isbn: <span class="s">'978-616-000-004-2'</span> });</span><span class="ln">console.<span class="f">log</span>(<span class="s">'deleteOne -&gt;'</span>, r1.deletedCount);</span><span class="ln"> </span><span class="ln"><span class="c">// ลบทุกรายการที่ตรงเงื่อนไข</span></span><span class="ln"><span class="k">const</span> r2 = <span class="k">await</span> books.<span class="f">deleteMany</span>({ stock: <span class="n">0</span> });</span><span class="ln">console.<span class="f">log</span>(<span class="s">'deleteMany -&gt;'</span>, r2.deletedCount);</span><span class="ln"> </span><span class="ln"><span class="c">// ระวัง! filter ว่าง {} = ลบทั้ง collection</span></span><span class="ln"><span class="c">// await books.deleteMany({});</span></span><span class="ln"> </span><span class="ln">console.<span class="f">log</span>(<span class="s">'เหลือหนังสือ'</span>, <span class="k">await</span> books.<span class="f">countDocuments</span>(), <span class="s">'เล่ม'</span>);</span><span class="ln"><span class="k">await</span> <span class="f">disconnectFromMongoDB</span>();</span></code></pre><textarea class="raw" hidden readonly>// 06-delete.js — Delete   รัน: node 06-delete.js
+import { connectToMongoDB, disconnectFromMongoDB } from './db.js';
+
+const client = await connectToMongoDB();
+const books = client.db('bookstore').collection('books');
+
+// ลบ 1 รายการ
+const r1 = await books.deleteOne({ isbn: '978-616-000-004-2' });
+console.log('deleteOne -&gt;', r1.deletedCount);
+
+// ลบทุกรายการที่ตรงเงื่อนไข
+const r2 = await books.deleteMany({ stock: 0 });
+console.log('deleteMany -&gt;', r2.deletedCount);
+
+// ระวัง! filter ว่าง {} = ลบทั้ง collection
+// await books.deleteMany({});
+
+console.log('เหลือหนังสือ', await books.countDocuments(), 'เล่ม');
+await disconnectFromMongoDB();
+</textarea></article><article class="file" id="f-part1-mongosh-js" data-path="part1-mongosh.js"><div class="file-bar"><span class="fname">part1-mongosh.js</span><span class="meta">47 บรรทัด</span><span class="grow"></span><button class="copy" type="button">คัดลอก</button></div><p class="desc">ทางเลือก: คำสั่งเดียวกันแบบ mongosh (สำหรับคนที่ทำ offline)</p><pre class="code"><code><span class="ln"><span class="c">// Part 1 — คำสั่ง MongoDB พื้นฐานใน mongosh (คัดลอกไปพิมพ์ทีละคำสั่ง)</span></span><span class="ln"><span class="c">// หรือรันทั้งไฟล์: mongosh &quot;mongodb://127.0.0.1:27017/?directConnection=true&quot; part1-mongosh.js</span></span><span class="ln"> </span><span class="ln">db = db.<span class="f">getSiblingDB</span>(<span class="s">'bookstore'</span>); <span class="c">// ใน mongosh แบบพิมพ์เอง ใช้: use bookstore</span></span><span class="ln">db.books.<span class="f">deleteMany</span>({});</span><span class="ln"> </span><span class="ln"><span class="c">// ---------- Create ----------</span></span><span class="ln">db.books.<span class="f">insertOne</span>({</span><span class="ln">  isbn: <span class="s">'978-616-000-001-1'</span>,</span><span class="ln">  title: <span class="s">'เริ่มต้น MongoDB'</span>,</span><span class="ln">  price: <span class="n">350</span>,</span><span class="ln">  stock: <span class="n">10</span>,</span><span class="ln">  tags: [<span class="s">'database'</span>, <span class="s">'nosql'</span>],</span><span class="ln">  publisher: { name: <span class="s">'ดาวเหนือ'</span>, city: <span class="s">'กรุงเทพฯ'</span> },</span><span class="ln">});</span><span class="ln"> </span><span class="ln">db.books.<span class="f">insertMany</span>([</span><span class="ln">  { isbn: <span class="s">'978-616-000-002-8'</span>, title: <span class="s">'JavaScript ฉบับเข้าใจง่าย'</span>, price: <span class="n">290</span>, stock: <span class="n">5</span>, tags: [<span class="s">'javascript'</span>] },</span><span class="ln">  { isbn: <span class="s">'978-616-000-003-5'</span>, title: <span class="s">'ออกแบบฐานข้อมูล'</span>, price: <span class="n">420</span>, stock: <span class="n">2</span>, tags: [<span class="s">'database'</span>, <span class="s">'design'</span>] },</span><span class="ln">  { isbn: <span class="s">'978-616-000-004-2'</span>, title: <span class="s">'Node.js สำหรับมือใหม่'</span>, price: <span class="n">390</span>, stock: <span class="n">0</span>, tags: [<span class="s">'javascript'</span>, <span class="s">'nodejs'</span>] },</span><span class="ln">]);</span><span class="ln"> </span><span class="ln"><span class="c">// ---------- Read ----------</span></span><span class="ln">db.books.<span class="f">find</span>();</span><span class="ln">db.books.<span class="f">find</span>({ tags: <span class="s">'database'</span> });</span><span class="ln">db.books.<span class="f">find</span>({ stock: { <span class="o">$gt</span>: <span class="n">0</span> } }, { title: <span class="n">1</span>, price: <span class="n">1</span>, _id: <span class="n">0</span> });</span><span class="ln">db.books.<span class="f">find</span>({ <span class="s">'publisher.city'</span>: <span class="s">'กรุงเทพฯ'</span> });</span><span class="ln">db.books.<span class="f">find</span>().<span class="f">sort</span>({ price: -<span class="n">1</span> }).<span class="f">limit</span>(<span class="n">5</span>);</span><span class="ln">db.books.<span class="f">findOne</span>({ isbn: <span class="s">'978-616-000-001-1'</span> });</span><span class="ln"> </span><span class="ln"><span class="c">// ---------- Query operators ----------</span></span><span class="ln">db.books.<span class="f">find</span>({ price: { <span class="o">$gte</span>: <span class="n">300</span>, <span class="o">$lte</span>: <span class="n">400</span> } });</span><span class="ln">db.books.<span class="f">find</span>({ tags: { <span class="o">$in</span>: [<span class="s">'database'</span>, <span class="s">'design'</span>] } });</span><span class="ln">db.books.<span class="f">find</span>({ title: { <span class="o">$regex</span>: <span class="s">'^Java'</span> } });</span><span class="ln">db.books.<span class="f">find</span>({ <span class="o">$or</span>: [{ stock: <span class="n">0</span> }, { price: { <span class="o">$gt</span>: <span class="n">400</span> } }] });</span><span class="ln"> </span><span class="ln"><span class="c">// ---------- Update ----------</span></span><span class="ln">db.books.<span class="f">updateOne</span>(</span><span class="ln">  { isbn: <span class="s">'978-616-000-001-1'</span> },</span><span class="ln">  { <span class="o">$inc</span>: { stock: <span class="n">5</span> }, <span class="o">$set</span>: { price: <span class="n">320</span> }, <span class="o">$push</span>: { tags: <span class="s">'beginner'</span> } }</span><span class="ln">);</span><span class="ln">db.books.<span class="f">updateOne</span>({ isbn: <span class="s">'978-616-000-001-1'</span>, stock: { <span class="o">$gte</span>: <span class="n">2</span> } }, { <span class="o">$inc</span>: { stock: -<span class="n">2</span> } });</span><span class="ln"> </span><span class="ln"><span class="c">// ---------- Delete ----------</span></span><span class="ln">db.books.<span class="f">deleteOne</span>({ isbn: <span class="s">'978-616-000-004-2'</span> });</span><span class="ln"> </span><span class="ln"><span class="f">print</span>(<span class="s">'เหลือหนังสือ'</span>, db.books.<span class="f">countDocuments</span>(), <span class="s">'เล่ม'</span>);</span></code></pre><textarea class="raw" hidden readonly>// Part 1 — คำสั่ง MongoDB พื้นฐานใน mongosh (คัดลอกไปพิมพ์ทีละคำสั่ง)
+// หรือรันทั้งไฟล์: mongosh &quot;mongodb://127.0.0.1:27017/?directConnection=true&quot; part1-mongosh.js
+
+db = db.getSiblingDB('bookstore'); // ใน mongosh แบบพิมพ์เอง ใช้: use bookstore
+db.books.deleteMany({});
+
+// ---------- Create ----------
+db.books.insertOne({
+  isbn: '978-616-000-001-1',
+  title: 'เริ่มต้น MongoDB',
+  price: 350,
+  stock: 10,
+  tags: ['database', 'nosql'],
+  publisher: { name: 'ดาวเหนือ', city: 'กรุงเทพฯ' },
+});
+
+db.books.insertMany([
+  { isbn: '978-616-000-002-8', title: 'JavaScript ฉบับเข้าใจง่าย', price: 290, stock: 5, tags: ['javascript'] },
+  { isbn: '978-616-000-003-5', title: 'ออกแบบฐานข้อมูล', price: 420, stock: 2, tags: ['database', 'design'] },
+  { isbn: '978-616-000-004-2', title: 'Node.js สำหรับมือใหม่', price: 390, stock: 0, tags: ['javascript', 'nodejs'] },
+]);
+
+// ---------- Read ----------
+db.books.find();
+db.books.find({ tags: 'database' });
+db.books.find({ stock: { $gt: 0 } }, { title: 1, price: 1, _id: 0 });
+db.books.find({ 'publisher.city': 'กรุงเทพฯ' });
+db.books.find().sort({ price: -1 }).limit(5);
+db.books.findOne({ isbn: '978-616-000-001-1' });
+
+// ---------- Query operators ----------
+db.books.find({ price: { $gte: 300, $lte: 400 } });
+db.books.find({ tags: { $in: ['database', 'design'] } });
+db.books.find({ title: { $regex: '^Java' } });
+db.books.find({ $or: [{ stock: 0 }, { price: { $gt: 400 } }] });
+
+// ---------- Update ----------
+db.books.updateOne(
+  { isbn: '978-616-000-001-1' },
+  { $inc: { stock: 5 }, $set: { price: 320 }, $push: { tags: 'beginner' } }
+);
+db.books.updateOne({ isbn: '978-616-000-001-1', stock: { $gte: 2 } }, { $inc: { stock: -2 } });
+
+// ---------- Delete ----------
+db.books.deleteOne({ isbn: '978-616-000-004-2' });
+
+print('เหลือหนังสือ', db.books.countDocuments(), 'เล่ม');
+</textarea></article></section><section id="part2" class="sec"><h2>Part 2–3 · app.js</h2><p class="lead">Express + Mongoose ในไฟล์เดียว: Schema, CRUD, สั่งซื้อแบบ transaction และจัดการ error</p><article class="file" id="f-app-js" data-path="app.js"><div class="file-bar"><span class="fname">app.js</span><span class="meta">133 บรรทัด</span><span class="grow"></span><button class="copy" type="button">คัดลอก</button></div><p class="desc">ทั้งแอปอยู่ในไฟล์นี้ (ส่วนที่ 1–6)</p><pre class="code"><code><span class="ln"><span class="c">// app.js — ร้านหนังสือ: Express + Mongoose ในไฟล์เดียว</span></span><span class="ln"><span class="k">import</span> express <span class="k">from</span> <span class="s">'express'</span>;</span><span class="ln"><span class="k">import</span> mongoose <span class="k">from</span> <span class="s">'mongoose'</span>;</span><span class="ln"> </span><span class="ln"><span class="c">// Atlas → Connect → Drivers → คัดลอก connection string แล้วใส่ user / password ของตัวเอง</span></span><span class="ln"><span class="k">const</span> uri = <span class="s">'mongodb+srv://&lt;db_user&gt;:&lt;db_password&gt;@&lt;cluster&gt;.mongodb.net/?appName=Cluster0'</span>;</span><span class="ln"><span class="c">// offline: const uri = 'mongodb://127.0.0.1:27017/?directConnection=true';</span></span><span class="ln"> </span><span class="ln"><span class="c">// ===== 1) Schema + Model =====</span></span><span class="ln"><span class="k">const</span> bookSchema = <span class="k">new</span> mongoose.<span class="f">Schema</span>(</span><span class="ln">  {</span><span class="ln">    isbn: { type: String, required: [<span class="k">true</span>, <span class="s">'ต้องระบุ ISBN'</span>], unique: <span class="k">true</span> },</span><span class="ln">    title: { type: String, required: [<span class="k">true</span>, <span class="s">'ต้องระบุชื่อหนังสือ'</span>] },</span><span class="ln">    author: String,</span><span class="ln">    price: { type: Number, required: <span class="k">true</span>, min: [<span class="n">0</span>, <span class="s">'ราคาต้องไม่ติดลบ'</span>] },</span><span class="ln">    stock: { type: Number, <span class="k">default</span>: <span class="n">0</span>, min: [<span class="n">0</span>, <span class="s">'สต็อกต้องไม่ติดลบ'</span>] },</span><span class="ln">    tags: [String],</span><span class="ln">  },</span><span class="ln">  { timestamps: <span class="k">true</span> }</span><span class="ln">);</span><span class="ln"><span class="k">const</span> Book = mongoose.<span class="f">model</span>(<span class="s">'Book'</span>, bookSchema);</span><span class="ln"> </span><span class="ln"><span class="k">const</span> itemSchema = <span class="k">new</span> mongoose.<span class="f">Schema</span>({</span><span class="ln">  book: { type: mongoose.Schema.Types.ObjectId, ref: <span class="s">'Book'</span> }, <span class="c">// reference</span></span><span class="ln">  title: String, <span class="c">// snapshot: ชื่อและราคา ณ วันที่ซื้อ</span></span><span class="ln">  price: Number,</span><span class="ln">  qty: Number,</span><span class="ln">});</span><span class="ln"><span class="k">const</span> orderSchema = <span class="k">new</span> mongoose.<span class="f">Schema</span>(</span><span class="ln">  { customer: { type: String, required: <span class="k">true</span> }, items: [itemSchema], total: Number },</span><span class="ln">  { timestamps: <span class="k">true</span> }</span><span class="ln">);</span><span class="ln"><span class="k">const</span> Order = mongoose.<span class="f">model</span>(<span class="s">'Order'</span>, orderSchema);</span><span class="ln"> </span><span class="ln"><span class="k">const</span> app = <span class="f">express</span>();</span><span class="ln">app.<span class="f">use</span>(express.<span class="f">json</span>());</span><span class="ln">app.<span class="f">use</span>(express.<span class="f">static</span>(<span class="s">'public'</span>)); <span class="c">// เปิดหน้าเว็บใน public/ ที่ http://localhost:3000</span></span><span class="ln"> </span><span class="ln"><span class="c">// ===== 2) CRUD หนังสือ =====</span></span><span class="ln">app.<span class="f">get</span>(<span class="s">'/books'</span>, <span class="k">async</span> (req, res) =&gt; {</span><span class="ln">  <span class="k">const</span> filter = req.query.tag ? { tags: req.query.tag } : {};</span><span class="ln">  res.<span class="f">json</span>(<span class="k">await</span> Book.<span class="f">find</span>(filter).<span class="f">sort</span>({ title: <span class="n">1</span> }));</span><span class="ln">});</span><span class="ln"> </span><span class="ln">app.<span class="f">get</span>(<span class="s">'/books/:id'</span>, <span class="k">async</span> (req, res) =&gt; {</span><span class="ln">  <span class="k">const</span> book = <span class="k">await</span> Book.<span class="f">findById</span>(req.params.id);</span><span class="ln">  <span class="k">if</span> (!book) <span class="k">return</span> res.<span class="f">status</span>(<span class="n">404</span>).<span class="f">json</span>({ error: <span class="s">'ไม่พบหนังสือ'</span> });</span><span class="ln">  res.<span class="f">json</span>(book);</span><span class="ln">});</span><span class="ln"> </span><span class="ln">app.<span class="f">post</span>(<span class="s">'/books'</span>, <span class="k">async</span> (req, res) =&gt; {</span><span class="ln">  <span class="k">const</span> book = <span class="k">await</span> Book.<span class="f">create</span>(req.body); <span class="c">// ตรวจข้อมูลตาม schema ก่อนบันทึก</span></span><span class="ln">  res.<span class="f">status</span>(<span class="n">201</span>).<span class="f">json</span>(book);</span><span class="ln">});</span><span class="ln"> </span><span class="ln">app.<span class="f">patch</span>(<span class="s">'/books/:id'</span>, <span class="k">async</span> (req, res) =&gt; {</span><span class="ln">  <span class="k">const</span> book = <span class="k">await</span> Book.<span class="f">findByIdAndUpdate</span>(req.params.id, req.body, {</span><span class="ln">    returnDocument: <span class="s">'after'</span>, <span class="c">// คืนค่าหลังแก้</span></span><span class="ln">    runValidators: <span class="k">true</span>, <span class="c">//     ตรวจ min / required ตอน update ด้วย</span></span><span class="ln">  });</span><span class="ln">  <span class="k">if</span> (!book) <span class="k">return</span> res.<span class="f">status</span>(<span class="n">404</span>).<span class="f">json</span>({ error: <span class="s">'ไม่พบหนังสือ'</span> });</span><span class="ln">  res.<span class="f">json</span>(book);</span><span class="ln">});</span><span class="ln"> </span><span class="ln">app.<span class="f">delete</span>(<span class="s">'/books/:id'</span>, <span class="k">async</span> (req, res) =&gt; {</span><span class="ln">  <span class="k">const</span> book = <span class="k">await</span> Book.<span class="f">findByIdAndDelete</span>(req.params.id);</span><span class="ln">  <span class="k">if</span> (!book) <span class="k">return</span> res.<span class="f">status</span>(<span class="n">404</span>).<span class="f">json</span>({ error: <span class="s">'ไม่พบหนังสือ'</span> });</span><span class="ln">  res.<span class="f">status</span>(<span class="n">204</span>).<span class="f">end</span>();</span><span class="ln">});</span><span class="ln"> </span><span class="ln"><span class="c">// ===== 3) สั่งซื้อแบบ transaction (ACID) =====</span></span><span class="ln"><span class="c">// body: { &quot;customer&quot;: &quot;สมชาย&quot;, &quot;items&quot;: [{ &quot;bookId&quot;: &quot;...&quot;, &quot;qty&quot;: 2 }] }</span></span><span class="ln">app.<span class="f">post</span>(<span class="s">'/orders'</span>, <span class="k">async</span> (req, res) =&gt; {</span><span class="ln">  <span class="k">const</span> { customer, items } = req.body;</span><span class="ln">  <span class="k">if</span> (!Array.<span class="f">isArray</span>(items) || items.length === <span class="n">0</span>) {</span><span class="ln">    <span class="k">return</span> res.<span class="f">status</span>(<span class="n">400</span>).<span class="f">json</span>({ error: <span class="s">'ต้องมีรายการหนังสืออย่างน้อย 1 รายการ'</span> });</span><span class="ln">  }</span><span class="ln"> </span><span class="ln">  <span class="k">const</span> order = <span class="k">await</span> mongoose.connection.<span class="f">transaction</span>(<span class="k">async</span> (session) =&gt; {</span><span class="ln">    <span class="k">const</span> lines = [];</span><span class="ln">    <span class="k">for</span> (<span class="k">const</span> { bookId, qty } <span class="k">of</span> items) {</span><span class="ln">      <span class="c">// ตัดสต็อกเฉพาะเมื่อมีของพอ</span></span><span class="ln">      <span class="k">const</span> book = <span class="k">await</span> Book.<span class="f">findOneAndUpdate</span>(</span><span class="ln">        { _id: bookId, stock: { <span class="o">$gte</span>: qty } },</span><span class="ln">        { <span class="o">$inc</span>: { stock: -qty } },</span><span class="ln">        { session, returnDocument: <span class="s">'after'</span> }</span><span class="ln">      );</span><span class="ln">      <span class="k">if</span> (!book) {</span><span class="ln">        <span class="k">const</span> err = <span class="k">new</span> <span class="f">Error</span>(<span class="s">`สต็อกไม่พอ: ${bookId}`</span>);</span><span class="ln">        err.status = <span class="n">400</span>;</span><span class="ln">        <span class="k">throw</span> err; <span class="c">// throw = rollback ทุกอย่างใน transaction</span></span><span class="ln">      }</span><span class="ln">      lines.<span class="f">push</span>({ book: book._id, title: book.title, price: book.price, qty });</span><span class="ln">    }</span><span class="ln">    <span class="k">const</span> total = lines.<span class="f">reduce</span>((sum, line) =&gt; sum + line.price * line.qty, <span class="n">0</span>);</span><span class="ln">    <span class="k">const</span> [created] = <span class="k">await</span> Order.<span class="f">create</span>([{ customer, items: lines, total }], { session });</span><span class="ln">    <span class="k">return</span> created; <span class="c">// return = commit</span></span><span class="ln">  });</span><span class="ln"> </span><span class="ln">  res.<span class="f">status</span>(<span class="n">201</span>).<span class="f">json</span>(order);</span><span class="ln">});</span><span class="ln"> </span><span class="ln">app.<span class="f">get</span>(<span class="s">'/orders'</span>, <span class="k">async</span> (req, res) =&gt; {</span><span class="ln">  <span class="k">const</span> orders = <span class="k">await</span> Order.<span class="f">find</span>().<span class="f">sort</span>({ createdAt: -<span class="n">1</span> }).<span class="f">populate</span>(<span class="s">'items.book'</span>, <span class="s">'title stock'</span>);</span><span class="ln">  res.<span class="f">json</span>(orders);</span><span class="ln">});</span><span class="ln"> </span><span class="ln"><span class="c">// ===== 4) ข้อมูลตัวอย่าง =====</span></span><span class="ln">app.<span class="f">post</span>(<span class="s">'/seed'</span>, <span class="k">async</span> (req, res) =&gt; {</span><span class="ln">  <span class="k">await</span> Order.<span class="f">deleteMany</span>({});</span><span class="ln">  <span class="k">await</span> Book.<span class="f">deleteMany</span>({});</span><span class="ln">  <span class="k">const</span> books = <span class="k">await</span> Book.<span class="f">insertMany</span>([</span><span class="ln">    { isbn: <span class="s">'978-616-000-001-1'</span>, title: <span class="s">'เริ่มต้น MongoDB'</span>, author: <span class="s">'อรุณี แสงทอง'</span>, price: <span class="n">350</span>, stock: <span class="n">10</span>, tags: [<span class="s">'database'</span>, <span class="s">'nosql'</span>] },</span><span class="ln">    { isbn: <span class="s">'978-616-000-002-8'</span>, title: <span class="s">'JavaScript ฉบับเข้าใจง่าย'</span>, author: <span class="s">'อรุณี แสงทอง'</span>, price: <span class="n">290</span>, stock: <span class="n">5</span>, tags: [<span class="s">'javascript'</span>] },</span><span class="ln">    { isbn: <span class="s">'978-616-000-003-5'</span>, title: <span class="s">'ออกแบบฐานข้อมูล'</span>, author: <span class="s">'Daniel Park'</span>, price: <span class="n">420</span>, stock: <span class="n">2</span>, tags: [<span class="s">'database'</span>, <span class="s">'design'</span>] },</span><span class="ln">    { isbn: <span class="s">'978-616-000-004-2'</span>, title: <span class="s">'Node.js สำหรับมือใหม่'</span>, author: <span class="s">'Daniel Park'</span>, price: <span class="n">390</span>, stock: <span class="n">0</span>, tags: [<span class="s">'javascript'</span>, <span class="s">'nodejs'</span>] },</span><span class="ln">  ]);</span><span class="ln">  res.<span class="f">json</span>(books);</span><span class="ln">});</span><span class="ln"> </span><span class="ln"><span class="c">// ===== 5) จัดการ error =====</span></span><span class="ln">app.<span class="f">use</span>((err, req, res, next) =&gt; {</span><span class="ln">  <span class="k">const</span> badInput = err.name === <span class="s">'ValidationError'</span> || err.name === <span class="s">'CastError'</span>;</span><span class="ln">  <span class="k">const</span> status = err.status || (badInput ? <span class="n">400</span> : err.code === <span class="n">11000</span> ? <span class="n">409</span> : <span class="n">500</span>);</span><span class="ln">  res.<span class="f">status</span>(status).<span class="f">json</span>({ error: err.message });</span><span class="ln">});</span><span class="ln"> </span><span class="ln"><span class="c">// ===== 6) เชื่อมต่อ database แล้วเปิด server =====</span></span><span class="ln"><span class="k">const</span> PORT = <span class="n">3000</span>;</span><span class="ln">mongoose</span><span class="ln">  .<span class="f">connect</span>(uri, { dbName: <span class="s">'bookstore'</span> }) <span class="c">// ใช้ database ชื่อ bookstore</span></span><span class="ln">  .<span class="f">then</span>(() =&gt; app.<span class="f">listen</span>(PORT, () =&gt; console.<span class="f">log</span>(<span class="s">`Bookstore API -&gt; http://localhost:${PORT}`</span>)))</span><span class="ln">  .<span class="k">catch</span>((err) =&gt; console.<span class="f">error</span>(<span class="s">'เชื่อมต่อ MongoDB ไม่ได้:'</span>, err.message));</span></code></pre><textarea class="raw" hidden readonly>// app.js — ร้านหนังสือ: Express + Mongoose ในไฟล์เดียว
+import express from 'express';
+import mongoose from 'mongoose';
+
+// Atlas → Connect → Drivers → คัดลอก connection string แล้วใส่ user / password ของตัวเอง
+const uri = 'mongodb+srv://&lt;db_user&gt;:&lt;db_password&gt;@&lt;cluster&gt;.mongodb.net/?appName=Cluster0';
+// offline: const uri = 'mongodb://127.0.0.1:27017/?directConnection=true';
+
+// ===== 1) Schema + Model =====
+const bookSchema = new mongoose.Schema(
+  {
+    isbn: { type: String, required: [true, 'ต้องระบุ ISBN'], unique: true },
+    title: { type: String, required: [true, 'ต้องระบุชื่อหนังสือ'] },
+    author: String,
+    price: { type: Number, required: true, min: [0, 'ราคาต้องไม่ติดลบ'] },
+    stock: { type: Number, default: 0, min: [0, 'สต็อกต้องไม่ติดลบ'] },
+    tags: [String],
+  },
+  { timestamps: true }
+);
+const Book = mongoose.model('Book', bookSchema);
+
+const itemSchema = new mongoose.Schema({
+  book: { type: mongoose.Schema.Types.ObjectId, ref: 'Book' }, // reference
+  title: String, // snapshot: ชื่อและราคา ณ วันที่ซื้อ
+  price: Number,
+  qty: Number,
+});
+const orderSchema = new mongoose.Schema(
+  { customer: { type: String, required: true }, items: [itemSchema], total: Number },
+  { timestamps: true }
+);
+const Order = mongoose.model('Order', orderSchema);
+
+const app = express();
+app.use(express.json());
+app.use(express.static('public')); // เปิดหน้าเว็บใน public/ ที่ http://localhost:3000
+
+// ===== 2) CRUD หนังสือ =====
+app.get('/books', async (req, res) =&gt; {
+  const filter = req.query.tag ? { tags: req.query.tag } : {};
+  res.json(await Book.find(filter).sort({ title: 1 }));
+});
+
+app.get('/books/:id', async (req, res) =&gt; {
+  const book = await Book.findById(req.params.id);
+  if (!book) return res.status(404).json({ error: 'ไม่พบหนังสือ' });
+  res.json(book);
+});
+
+app.post('/books', async (req, res) =&gt; {
+  const book = await Book.create(req.body); // ตรวจข้อมูลตาม schema ก่อนบันทึก
+  res.status(201).json(book);
+});
+
+app.patch('/books/:id', async (req, res) =&gt; {
+  const book = await Book.findByIdAndUpdate(req.params.id, req.body, {
+    returnDocument: 'after', // คืนค่าหลังแก้
+    runValidators: true, //     ตรวจ min / required ตอน update ด้วย
+  });
+  if (!book) return res.status(404).json({ error: 'ไม่พบหนังสือ' });
+  res.json(book);
+});
+
+app.delete('/books/:id', async (req, res) =&gt; {
+  const book = await Book.findByIdAndDelete(req.params.id);
+  if (!book) return res.status(404).json({ error: 'ไม่พบหนังสือ' });
+  res.status(204).end();
+});
+
+// ===== 3) สั่งซื้อแบบ transaction (ACID) =====
+// body: { &quot;customer&quot;: &quot;สมชาย&quot;, &quot;items&quot;: [{ &quot;bookId&quot;: &quot;...&quot;, &quot;qty&quot;: 2 }] }
+app.post('/orders', async (req, res) =&gt; {
+  const { customer, items } = req.body;
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'ต้องมีรายการหนังสืออย่างน้อย 1 รายการ' });
+  }
+
+  const order = await mongoose.connection.transaction(async (session) =&gt; {
+    const lines = [];
+    for (const { bookId, qty } of items) {
+      // ตัดสต็อกเฉพาะเมื่อมีของพอ
+      const book = await Book.findOneAndUpdate(
+        { _id: bookId, stock: { $gte: qty } },
+        { $inc: { stock: -qty } },
+        { session, returnDocument: 'after' }
+      );
+      if (!book) {
+        const err = new Error(`สต็อกไม่พอ: ${bookId}`);
+        err.status = 400;
+        throw err; // throw = rollback ทุกอย่างใน transaction
+      }
+      lines.push({ book: book._id, title: book.title, price: book.price, qty });
+    }
+    const total = lines.reduce((sum, line) =&gt; sum + line.price * line.qty, 0);
+    const [created] = await Order.create([{ customer, items: lines, total }], { session });
+    return created; // return = commit
+  });
+
+  res.status(201).json(order);
+});
+
+app.get('/orders', async (req, res) =&gt; {
+  const orders = await Order.find().sort({ createdAt: -1 }).populate('items.book', 'title stock');
+  res.json(orders);
+});
+
+// ===== 4) ข้อมูลตัวอย่าง =====
+app.post('/seed', async (req, res) =&gt; {
+  await Order.deleteMany({});
+  await Book.deleteMany({});
+  const books = await Book.insertMany([
+    { isbn: '978-616-000-001-1', title: 'เริ่มต้น MongoDB', author: 'อรุณี แสงทอง', price: 350, stock: 10, tags: ['database', 'nosql'] },
+    { isbn: '978-616-000-002-8', title: 'JavaScript ฉบับเข้าใจง่าย', author: 'อรุณี แสงทอง', price: 290, stock: 5, tags: ['javascript'] },
+    { isbn: '978-616-000-003-5', title: 'ออกแบบฐานข้อมูล', author: 'Daniel Park', price: 420, stock: 2, tags: ['database', 'design'] },
+    { isbn: '978-616-000-004-2', title: 'Node.js สำหรับมือใหม่', author: 'Daniel Park', price: 390, stock: 0, tags: ['javascript', 'nodejs'] },
+  ]);
+  res.json(books);
+});
+
+// ===== 5) จัดการ error =====
+app.use((err, req, res, next) =&gt; {
+  const badInput = err.name === 'ValidationError' || err.name === 'CastError';
+  const status = err.status || (badInput ? 400 : err.code === 11000 ? 409 : 500);
+  res.status(status).json({ error: err.message });
+});
+
+// ===== 6) เชื่อมต่อ database แล้วเปิด server =====
+const PORT = 3000;
+mongoose
+  .connect(uri, { dbName: 'bookstore' }) // ใช้ database ชื่อ bookstore
+  .then(() =&gt; app.listen(PORT, () =&gt; console.log(`Bookstore API -&gt; http://localhost:${PORT}`)))
+  .catch((err) =&gt; console.error('เชื่อมต่อ MongoDB ไม่ได้:', err.message));
+</textarea></article></section><section id="frontend" class="sec"><h2>Frontend · public/index.html</h2><p class="lead">หน้าเว็บ HTML + fetch() เรียก API ของ app.js — npm run dev แล้วเปิด http://localhost:3000</p><article class="file" id="f-public-index-html" data-path="public/index.html"><div class="file-bar"><span class="fname">public/index.html</span><span class="meta">107 บรรทัด</span><span class="grow"></span><button class="copy" type="button">คัดลอก</button></div><p class="desc">ตารางหนังสือ, สั่งซื้อ (เห็น rollback), เพิ่ม / ลบหนังสือ</p><pre class="code"><code><span class="ln">&lt;!doctype html<span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;html</span> lang=&quot;th&quot;<span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;head</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;meta</span> charset=&quot;utf-8&quot;<span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;meta</span> name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;<span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;title</span><span class="k">&gt;</span>ร้านหนังสือ<span class="k">&lt;/title</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;style</span><span class="k">&gt;</span></span><span class="ln">  body { font-family: system-ui, sans-serif; max-width: 860px; margin: 24px auto; padding: 0 16px; }</span><span class="ln">  table { width: 100%; border-collapse: collapse; }</span><span class="ln">  th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }</span><span class="ln">  input, button { font: inherit; padding: 4px 8px; }</span><span class="ln">  .qty { width: 60px; }</span><span class="ln">  #msg { padding: 8px 12px; border-radius: 6px; }</span><span class="ln">  .ok { background: #e3f4e5; }</span><span class="ln">  .err { background: #fbe3e3; }</span><span class="ln"><span class="k">&lt;/style</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;/head</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;body</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;h1</span><span class="k">&gt;</span>ร้านหนังสือ<span class="k">&lt;/h1</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;p</span> id=&quot;msg&quot;<span class="k">&gt;</span><span class="k">&lt;/p</span><span class="k">&gt;</span></span><span class="ln"> </span><span class="ln"><span class="k">&lt;h2</span><span class="k">&gt;</span>หนังสือ (GET /books)<span class="k">&lt;/h2</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;input</span> id=&quot;tag&quot; placeholder=&quot;กรองตาม tag เช่น database&quot;<span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;button</span> onclick=&quot;refresh()&quot;<span class="k">&gt;</span>ค้นหา<span class="k">&lt;/button</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;button</span> onclick=&quot;seed()&quot;<span class="k">&gt;</span>ใส่ข้อมูลตัวอย่าง<span class="k">&lt;/button</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;table</span><span class="k">&gt;</span></span><span class="ln">  <span class="k">&lt;thead</span><span class="k">&gt;</span><span class="k">&lt;tr</span><span class="k">&gt;</span><span class="k">&lt;th</span><span class="k">&gt;</span>ชื่อ<span class="k">&lt;/th</span><span class="k">&gt;</span><span class="k">&lt;th</span><span class="k">&gt;</span>ราคา<span class="k">&lt;/th</span><span class="k">&gt;</span><span class="k">&lt;th</span><span class="k">&gt;</span>สต็อก<span class="k">&lt;/th</span><span class="k">&gt;</span><span class="k">&lt;th</span><span class="k">&gt;</span>tags<span class="k">&lt;/th</span><span class="k">&gt;</span><span class="k">&lt;th</span><span class="k">&gt;</span>จำนวนซื้อ<span class="k">&lt;/th</span><span class="k">&gt;</span><span class="k">&lt;th</span><span class="k">&gt;</span><span class="k">&lt;/th</span><span class="k">&gt;</span><span class="k">&lt;/tr</span><span class="k">&gt;</span><span class="k">&lt;/thead</span><span class="k">&gt;</span></span><span class="ln">  <span class="k">&lt;tbody</span> id=&quot;books&quot;<span class="k">&gt;</span><span class="k">&lt;/tbody</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;/table</span><span class="k">&gt;</span></span><span class="ln"> </span><span class="ln"><span class="k">&lt;h2</span><span class="k">&gt;</span>สั่งซื้อ (POST /orders — transaction)<span class="k">&lt;/h2</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;input</span> id=&quot;customer&quot; value=&quot;สมชาย&quot;<span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;button</span> onclick=&quot;order()&quot;<span class="k">&gt;</span>สั่งซื้อรายการที่ใส่จำนวน<span class="k">&lt;/button</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;ul</span> id=&quot;orders&quot;<span class="k">&gt;</span><span class="k">&lt;/ul</span><span class="k">&gt;</span></span><span class="ln"> </span><span class="ln"><span class="k">&lt;h2</span><span class="k">&gt;</span>เพิ่มหนังสือ (POST /books)<span class="k">&lt;/h2</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;form</span> id=&quot;add&quot;<span class="k">&gt;</span></span><span class="ln">  <span class="k">&lt;input</span> name=&quot;isbn&quot; placeholder=&quot;ISBN&quot;<span class="k">&gt;</span></span><span class="ln">  <span class="k">&lt;input</span> name=&quot;title&quot; placeholder=&quot;ชื่อหนังสือ&quot;<span class="k">&gt;</span></span><span class="ln">  <span class="k">&lt;input</span> name=&quot;price&quot; type=&quot;number&quot; placeholder=&quot;ราคา&quot;<span class="k">&gt;</span></span><span class="ln">  <span class="k">&lt;input</span> name=&quot;stock&quot; type=&quot;number&quot; placeholder=&quot;สต็อก&quot;<span class="k">&gt;</span></span><span class="ln">  <span class="k">&lt;input</span> name=&quot;tags&quot; placeholder=&quot;tags คั่นด้วย ,&quot;<span class="k">&gt;</span></span><span class="ln">  <span class="k">&lt;button</span><span class="k">&gt;</span>เพิ่ม<span class="k">&lt;/button</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;/form</span><span class="k">&gt;</span></span><span class="ln"> </span><span class="ln"><span class="k">&lt;script</span><span class="k">&gt;</span></span><span class="ln"><span class="k">const</span> <span class="o">$</span> = (sel) =&gt; document.<span class="f">querySelector</span>(sel);</span><span class="ln"><span class="k">const</span> esc = (s) =&gt; <span class="f">String</span>(s ?? <span class="s">''</span>).<span class="f">replace</span>(<span class="s">/[&amp;&lt;&gt;&quot;]/g</span>, (c) =&gt; <span class="s">`&amp;#${c.charCodeAt(0)};`</span>); <span class="c">// กันข้อความเป็น HTML</span></span><span class="ln"> </span><span class="ln"><span class="c">// เรียก API — ถ้า status ไม่ใช่ 2xx ให้ throw ข้อความ error ที่ server ส่งมา</span></span><span class="ln"><span class="k">async</span> <span class="k">function</span> <span class="f">api</span>(method, url, body) {</span><span class="ln">  <span class="k">const</span> res = <span class="k">await</span> <span class="f">fetch</span>(url, {</span><span class="ln">    method,</span><span class="ln">    headers: { <span class="s">'content-type'</span>: <span class="s">'application/json'</span> },</span><span class="ln">    body: body &amp;&amp; JSON.<span class="f">stringify</span>(body),</span><span class="ln">  });</span><span class="ln">  <span class="k">const</span> data = res.status === <span class="n">204</span> ? <span class="k">null</span> : <span class="k">await</span> res.<span class="f">json</span>();</span><span class="ln">  <span class="k">if</span> (!res.ok) <span class="k">throw</span> <span class="k">new</span> <span class="f">Error</span>(<span class="s">`${res.status} ${data.error}`</span>);</span><span class="ln">  <span class="k">return</span> data;</span><span class="ln">}</span><span class="ln"> </span><span class="ln"><span class="k">function</span> <span class="f">show</span>(text, ok = <span class="k">true</span>) {</span><span class="ln">  <span class="o">$</span>(<span class="s">'#msg'</span>).textContent = text;</span><span class="ln">  <span class="o">$</span>(<span class="s">'#msg'</span>).className = ok ? <span class="s">'ok'</span> : <span class="s">'err'</span>;</span><span class="ln">}</span><span class="ln"> </span><span class="ln"><span class="k">async</span> <span class="k">function</span> <span class="f">refresh</span>() {</span><span class="ln">  <span class="k">const</span> tag = <span class="o">$</span>(<span class="s">'#tag'</span>).value.<span class="f">trim</span>();</span><span class="ln">  <span class="k">const</span> books = <span class="k">await</span> <span class="f">api</span>(<span class="s">'GET'</span>, tag ? <span class="s">`/books?tag=${encodeURIComponent(tag)}`</span> : <span class="s">'/books'</span>);</span><span class="ln">  <span class="o">$</span>(<span class="s">'#books'</span>).innerHTML = books.<span class="f">map</span>((b) =&gt; <span class="s">`</span></span><span class="ln"><span class="s">    &lt;tr&gt;&lt;td&gt;${esc(b.title)}&lt;/td&gt;&lt;td&gt;${b.price}&lt;/td&gt;&lt;td&gt;${b.stock}&lt;/td&gt;&lt;td&gt;${esc(b.tags.join(', '))}&lt;/td&gt;</span></span><span class="ln"><span class="s">      &lt;td&gt;&lt;input class=&quot;qty&quot; type=&quot;number&quot; min=&quot;0&quot; value=&quot;0&quot; data-id=&quot;${b._id}&quot;&gt;&lt;/td&gt;</span></span><span class="ln"><span class="s">      &lt;td&gt;&lt;button onclick=&quot;removeBook('${b._id}')&quot;&gt;ลบ&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;`</span>).<span class="f">join</span>(<span class="s">''</span>);</span><span class="ln"> </span><span class="ln">  <span class="k">const</span> orders = <span class="k">await</span> <span class="f">api</span>(<span class="s">'GET'</span>, <span class="s">'/orders'</span>);</span><span class="ln">  <span class="o">$</span>(<span class="s">'#orders'</span>).innerHTML = orders.<span class="f">map</span>((o) =&gt;</span><span class="ln">    <span class="s">`&lt;li&gt;${esc(o.customer)}: ${o.items.map((i) =&gt; `</span><span class="o">$</span>{<span class="f">esc</span>(i.title)} × <span class="o">$</span>{i.qty}<span class="s">`).join(', ')} = ${o.total} บาท&lt;/li&gt;`</span>).<span class="f">join</span>(<span class="s">''</span>);</span><span class="ln">}</span><span class="ln"> </span><span class="ln"><span class="k">async</span> <span class="k">function</span> <span class="f">run</span>(action, okText) { <span class="c">// ทำงาน → แสดงผล → โหลดตารางใหม่</span></span><span class="ln">  <span class="k">try</span> { <span class="f">show</span>(<span class="f">okText</span>(<span class="k">await</span> <span class="f">action</span>())); } <span class="k">catch</span> (err) { <span class="f">show</span>(err.message, <span class="k">false</span>); }</span><span class="ln">  <span class="f">refresh</span>().<span class="k">catch</span>((err) =&gt; <span class="f">show</span>(err.message, <span class="k">false</span>));</span><span class="ln">}</span><span class="ln"> </span><span class="ln"><span class="k">const</span> seed = () =&gt; <span class="f">run</span>(() =&gt; <span class="f">api</span>(<span class="s">'POST'</span>, <span class="s">'/seed'</span>), (books) =&gt; <span class="s">`ใส่หนังสือตัวอย่าง ${books.length} เล่ม`</span>);</span><span class="ln"><span class="k">const</span> removeBook = (id) =&gt; <span class="f">run</span>(() =&gt; <span class="f">api</span>(<span class="s">'DELETE'</span>, <span class="s">`/books/${id}`</span>), () =&gt; <span class="s">'ลบแล้ว'</span>);</span><span class="ln"> </span><span class="ln"><span class="k">function</span> <span class="f">order</span>() {</span><span class="ln">  <span class="k">const</span> items = [...document.<span class="f">querySelectorAll</span>(<span class="s">'.qty'</span>)]</span><span class="ln">    .<span class="f">filter</span>((input) =&gt; <span class="f">Number</span>(input.value) &gt; <span class="n">0</span>)</span><span class="ln">    .<span class="f">map</span>((input) =&gt; ({ bookId: input.dataset.id, qty: <span class="f">Number</span>(input.value) }));</span><span class="ln">  <span class="f">run</span>(() =&gt; <span class="f">api</span>(<span class="s">'POST'</span>, <span class="s">'/orders'</span>, { customer: <span class="o">$</span>(<span class="s">'#customer'</span>).value, items }),</span><span class="ln">      (o) =&gt; <span class="s">`สั่งซื้อสำเร็จ รวม ${o.total} บาท`</span>);</span><span class="ln">}</span><span class="ln"> </span><span class="ln"><span class="o">$</span>(<span class="s">'#add'</span>).<span class="f">addEventListener</span>(<span class="s">'submit'</span>, (e) =&gt; {</span><span class="ln">  e.<span class="f">preventDefault</span>(); <span class="c">// ไม่ให้ browser reload หน้า</span></span><span class="ln">  <span class="k">const</span> book = Object.<span class="f">fromEntries</span>(<span class="k">new</span> <span class="f">FormData</span>(e.target));</span><span class="ln">  <span class="k">for</span> (<span class="k">const</span> key <span class="k">in</span> book) <span class="k">if</span> (book[key] === <span class="s">''</span>) delete book[key]; <span class="c">// ช่องว่าง = ไม่ส่ง</span></span><span class="ln">  book.tags = book.tags ? book.tags.<span class="f">split</span>(<span class="s">','</span>).<span class="f">map</span>((t) =&gt; t.<span class="f">trim</span>()) : [];</span><span class="ln">  <span class="f">run</span>(() =&gt; <span class="f">api</span>(<span class="s">'POST'</span>, <span class="s">'/books'</span>, book), (b) =&gt; { e.target.<span class="f">reset</span>(); <span class="k">return</span> <span class="s">`เพิ่ม &quot;${b.title}&quot; แล้ว`</span>; });</span><span class="ln">});</span><span class="ln"> </span><span class="ln"><span class="f">refresh</span>().<span class="k">catch</span>((err) =&gt; <span class="f">show</span>(err.message, <span class="k">false</span>));</span><span class="ln"><span class="k">&lt;/script</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;/body</span><span class="k">&gt;</span></span><span class="ln"><span class="k">&lt;/html</span><span class="k">&gt;</span></span></code></pre><textarea class="raw" hidden readonly>&lt;!doctype html&gt;
+&lt;html lang=&quot;th&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;title&gt;ร้านหนังสือ&lt;/title&gt;
+&lt;style&gt;
+  body { font-family: system-ui, sans-serif; max-width: 860px; margin: 24px auto; padding: 0 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
+  input, button { font: inherit; padding: 4px 8px; }
+  .qty { width: 60px; }
+  #msg { padding: 8px 12px; border-radius: 6px; }
+  .ok { background: #e3f4e5; }
+  .err { background: #fbe3e3; }
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;ร้านหนังสือ&lt;/h1&gt;
+&lt;p id=&quot;msg&quot;&gt;&lt;/p&gt;
+
+&lt;h2&gt;หนังสือ (GET /books)&lt;/h2&gt;
+&lt;input id=&quot;tag&quot; placeholder=&quot;กรองตาม tag เช่น database&quot;&gt;
+&lt;button onclick=&quot;refresh()&quot;&gt;ค้นหา&lt;/button&gt;
+&lt;button onclick=&quot;seed()&quot;&gt;ใส่ข้อมูลตัวอย่าง&lt;/button&gt;
+&lt;table&gt;
+  &lt;thead&gt;&lt;tr&gt;&lt;th&gt;ชื่อ&lt;/th&gt;&lt;th&gt;ราคา&lt;/th&gt;&lt;th&gt;สต็อก&lt;/th&gt;&lt;th&gt;tags&lt;/th&gt;&lt;th&gt;จำนวนซื้อ&lt;/th&gt;&lt;th&gt;&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+  &lt;tbody id=&quot;books&quot;&gt;&lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;h2&gt;สั่งซื้อ (POST /orders — transaction)&lt;/h2&gt;
+&lt;input id=&quot;customer&quot; value=&quot;สมชาย&quot;&gt;
+&lt;button onclick=&quot;order()&quot;&gt;สั่งซื้อรายการที่ใส่จำนวน&lt;/button&gt;
+&lt;ul id=&quot;orders&quot;&gt;&lt;/ul&gt;
+
+&lt;h2&gt;เพิ่มหนังสือ (POST /books)&lt;/h2&gt;
+&lt;form id=&quot;add&quot;&gt;
+  &lt;input name=&quot;isbn&quot; placeholder=&quot;ISBN&quot;&gt;
+  &lt;input name=&quot;title&quot; placeholder=&quot;ชื่อหนังสือ&quot;&gt;
+  &lt;input name=&quot;price&quot; type=&quot;number&quot; placeholder=&quot;ราคา&quot;&gt;
+  &lt;input name=&quot;stock&quot; type=&quot;number&quot; placeholder=&quot;สต็อก&quot;&gt;
+  &lt;input name=&quot;tags&quot; placeholder=&quot;tags คั่นด้วย ,&quot;&gt;
+  &lt;button&gt;เพิ่ม&lt;/button&gt;
+&lt;/form&gt;
+
+&lt;script&gt;
+const $ = (sel) =&gt; document.querySelector(sel);
+const esc = (s) =&gt; String(s ?? '').replace(/[&amp;&lt;&gt;&quot;]/g, (c) =&gt; `&amp;#${c.charCodeAt(0)};`); // กันข้อความเป็น HTML
+
+// เรียก API — ถ้า status ไม่ใช่ 2xx ให้ throw ข้อความ error ที่ server ส่งมา
+async function api(method, url, body) {
+  const res = await fetch(url, {
+    method,
+    headers: { 'content-type': 'application/json' },
+    body: body &amp;&amp; JSON.stringify(body),
+  });
+  const data = res.status === 204 ? null : await res.json();
+  if (!res.ok) throw new Error(`${res.status} ${data.error}`);
+  return data;
+}
+
+function show(text, ok = true) {
+  $('#msg').textContent = text;
+  $('#msg').className = ok ? 'ok' : 'err';
+}
+
+async function refresh() {
+  const tag = $('#tag').value.trim();
+  const books = await api('GET', tag ? `/books?tag=${encodeURIComponent(tag)}` : '/books');
+  $('#books').innerHTML = books.map((b) =&gt; `
+    &lt;tr&gt;&lt;td&gt;${esc(b.title)}&lt;/td&gt;&lt;td&gt;${b.price}&lt;/td&gt;&lt;td&gt;${b.stock}&lt;/td&gt;&lt;td&gt;${esc(b.tags.join(', '))}&lt;/td&gt;
+      &lt;td&gt;&lt;input class=&quot;qty&quot; type=&quot;number&quot; min=&quot;0&quot; value=&quot;0&quot; data-id=&quot;${b._id}&quot;&gt;&lt;/td&gt;
+      &lt;td&gt;&lt;button onclick=&quot;removeBook('${b._id}')&quot;&gt;ลบ&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;`).join('');
+
+  const orders = await api('GET', '/orders');
+  $('#orders').innerHTML = orders.map((o) =&gt;
+    `&lt;li&gt;${esc(o.customer)}: ${o.items.map((i) =&gt; `${esc(i.title)} × ${i.qty}`).join(', ')} = ${o.total} บาท&lt;/li&gt;`).join('');
+}
+
+async function run(action, okText) { // ทำงาน → แสดงผล → โหลดตารางใหม่
+  try { show(okText(await action())); } catch (err) { show(err.message, false); }
+  refresh().catch((err) =&gt; show(err.message, false));
+}
+
+const seed = () =&gt; run(() =&gt; api('POST', '/seed'), (books) =&gt; `ใส่หนังสือตัวอย่าง ${books.length} เล่ม`);
+const removeBook = (id) =&gt; run(() =&gt; api('DELETE', `/books/${id}`), () =&gt; 'ลบแล้ว');
+
+function order() {
+  const items = [...document.querySelectorAll('.qty')]
+    .filter((input) =&gt; Number(input.value) &gt; 0)
+    .map((input) =&gt; ({ bookId: input.dataset.id, qty: Number(input.value) }));
+  run(() =&gt; api('POST', '/orders', { customer: $('#customer').value, items }),
+      (o) =&gt; `สั่งซื้อสำเร็จ รวม ${o.total} บาท`);
+}
+
+$('#add').addEventListener('submit', (e) =&gt; {
+  e.preventDefault(); // ไม่ให้ browser reload หน้า
+  const book = Object.fromEntries(new FormData(e.target));
+  for (const key in book) if (book[key] === '') delete book[key]; // ช่องว่าง = ไม่ส่ง
+  book.tags = book.tags ? book.tags.split(',').map((t) =&gt; t.trim()) : [];
+  run(() =&gt; api('POST', '/books', book), (b) =&gt; { e.target.reset(); return `เพิ่ม &quot;${b.title}&quot; แล้ว`; });
+});
+
+refresh().catch((err) =&gt; show(err.message, false));
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</textarea></article></section><section id="config" class="sec"><h2>ไฟล์ตั้งค่า</h2><p class="lead">ไฟล์ที่ต้องมีในโปรเจกต์ก่อนเริ่ม</p><article class="file" id="f-package-json" data-path="package.json"><div class="file-bar"><span class="fname">package.json</span><span class="meta">25 บรรทัด</span><span class="grow"></span><button class="copy" type="button">คัดลอก</button></div><p class="desc">dependencies และคำสั่ง npm</p><pre class="code"><code><span class="ln">{</span><span class="ln">  &quot;name&quot;: &quot;bookstore-mongodb&quot;,</span><span class="ln">  &quot;version&quot;: &quot;1.0.0&quot;,</span><span class="ln">  &quot;description&quot;: &quot;ตัวอย่างประกอบการสอน MongoDB ใน 3 ชั่วโมง: Node.js driver, Express + Mongoose และ ACID transaction (ร้านหนังสือ)&quot;,</span><span class="ln">  &quot;type&quot;: &quot;module&quot;,</span><span class="ln">  &quot;main&quot;: &quot;app.js&quot;,</span><span class="ln">  &quot;engines&quot;: {</span><span class="ln">    &quot;node&quot;: &quot;&gt;=20&quot;</span><span class="ln">  },</span><span class="ln">  &quot;scripts&quot;: {</span><span class="ln">    &quot;start&quot;: &quot;node app.js&quot;,</span><span class="ln">    &quot;dev&quot;: &quot;node --watch app.js&quot;,</span><span class="ln">    &quot;db:up&quot;: &quot;docker compose up -d&quot;,</span><span class="ln">    &quot;docs&quot;: &quot;node scripts/build-docs.mjs&quot;</span><span class="ln">  },</span><span class="ln">  &quot;dependencies&quot;: {</span><span class="ln">    &quot;express&quot;: &quot;^5.2.1&quot;,</span><span class="ln">    &quot;mongodb&quot;: &quot;^7.6.0&quot;,</span><span class="ln">    &quot;mongoose&quot;: &quot;^9.0.0&quot;</span><span class="ln">  },</span><span class="ln">  &quot;repository&quot;: {</span><span class="ln">    &quot;type&quot;: &quot;git&quot;,</span><span class="ln">    &quot;url&quot;: &quot;https://github.com/&lt;account&gt;/bookstore-mongodb&quot;</span><span class="ln">  }</span><span class="ln">}</span></code></pre><textarea class="raw" hidden readonly>{
+  &quot;name&quot;: &quot;bookstore-mongodb&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;description&quot;: &quot;ตัวอย่างประกอบการสอน MongoDB ใน 3 ชั่วโมง: Node.js driver, Express + Mongoose และ ACID transaction (ร้านหนังสือ)&quot;,
+  &quot;type&quot;: &quot;module&quot;,
+  &quot;main&quot;: &quot;app.js&quot;,
+  &quot;engines&quot;: {
+    &quot;node&quot;: &quot;&gt;=20&quot;
+  },
+  &quot;scripts&quot;: {
+    &quot;start&quot;: &quot;node app.js&quot;,
+    &quot;dev&quot;: &quot;node --watch app.js&quot;,
+    &quot;db:up&quot;: &quot;docker compose up -d&quot;,
+    &quot;docs&quot;: &quot;node scripts/build-docs.mjs&quot;
+  },
+  &quot;dependencies&quot;: {
+    &quot;express&quot;: &quot;^5.2.1&quot;,
+    &quot;mongodb&quot;: &quot;^7.6.0&quot;,
+    &quot;mongoose&quot;: &quot;^9.0.0&quot;
+  },
+  &quot;repository&quot;: {
+    &quot;type&quot;: &quot;git&quot;,
+    &quot;url&quot;: &quot;https://github.com/&lt;account&gt;/bookstore-mongodb&quot;
+  }
+}
+</textarea></article><article class="file" id="f-docker-compose-yml" data-path="docker-compose.yml"><div class="file-bar"><span class="fname">docker-compose.yml</span><span class="meta">20 บรรทัด</span><span class="grow"></span><button class="copy" type="button">คัดลอก</button></div><p class="desc">Offline: MongoDB 8.0 แบบ replica set 1 node (รองรับ transaction)</p><pre class="code"><code><span class="ln"><span class="c"># MongoDB 8.0 แบบ replica set 1 node (transaction ต้องใช้ replica set)</span></span><span class="ln"><span class="f">services</span>:<span class="s"></span></span><span class="ln">  <span class="f">mongo</span>:<span class="s"></span></span><span class="ln">    <span class="f">image</span>:<span class="s"> mongo:8.0</span></span><span class="ln">    <span class="f">container_name</span>:<span class="s"> bookstore-mongo</span></span><span class="ln">    <span class="f">command</span>:<span class="s"> [&quot;--replSet&quot;, &quot;rs0&quot;, &quot;--bind_ip_all&quot;]</span></span><span class="ln">    <span class="f">ports</span>:<span class="s"></span></span><span class="ln">      - &quot;27017:27017&quot;</span><span class="ln">    <span class="f">volumes</span>:<span class="s"></span></span><span class="ln">      - <span class="f">mongo-data</span>:<span class="s">/data/db</span></span><span class="ln">    <span class="f">healthcheck</span>:<span class="s"></span></span><span class="ln">      <span class="c"># ครั้งแรกยังไม่มี replica set -&gt; rs.status() error -&gt; สั่ง rs.initiate()</span></span><span class="ln">      <span class="f">test</span>:<span class="s"> [&quot;CMD&quot;, &quot;mongosh&quot;, &quot;--quiet&quot;, &quot;--eval&quot;, &quot;try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok }&quot;]</span></span><span class="ln">      <span class="f">interval</span>:<span class="s"> 5s</span></span><span class="ln">      <span class="f">timeout</span>:<span class="s"> 10s</span></span><span class="ln">      <span class="f">retries</span>:<span class="s"> 30</span></span><span class="ln">      <span class="f">start_period</span>:<span class="s"> 5s</span></span><span class="ln"> </span><span class="ln"><span class="f">volumes</span>:<span class="s"></span></span><span class="ln">  <span class="f">mongo-data</span>:<span class="s"></span></span></code></pre><textarea class="raw" hidden readonly># MongoDB 8.0 แบบ replica set 1 node (transaction ต้องใช้ replica set)
+services:
+  mongo:
+    image: mongo:8.0
+    container_name: bookstore-mongo
+    command: [&quot;--replSet&quot;, &quot;rs0&quot;, &quot;--bind_ip_all&quot;]
+    ports:
+      - &quot;27017:27017&quot;
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # ครั้งแรกยังไม่มี replica set -&gt; rs.status() error -&gt; สั่ง rs.initiate()
+      test: [&quot;CMD&quot;, &quot;mongosh&quot;, &quot;--quiet&quot;, &quot;--eval&quot;, &quot;try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok }&quot;]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 5s
+
+volumes:
+  mongo-data:
+</textarea></article></section><section id="homework" class="sec"><h2>การบ้าน · ระบบจัดการอุปกรณ์ในห้องแล็บ</h2><article class="doc" id="hw"><h2>การบ้าน: ระบบจัดการอุปกรณ์ในห้องแล็บ</h2><p>นำสิ่งที่ทำกับร้านหนังสือในห้องเรียน ไปสร้าง <strong>ระบบยืม–คืนอุปกรณ์ในห้องแล็บ</strong> ใช้ database ชื่อ <code>labdb</code></p><div class="tbl"><table><tr><th>ร้านหนังสือ (ในห้อง)</th><th>ระบบแล็บ (การบ้าน)</th></tr><tr><td><code>books</code></td><td><code>equipment</code> (อุปกรณ์)</td></tr><tr><td><code>orders</code></td><td><code>loans</code> (รายการยืม)</td></tr><tr><td>ตัดสต็อก + สร้าง order</td><td>เปลี่ยนสถานะอุปกรณ์เป็น <code>borrowed</code> + สร้าง loan</td></tr></table></div><h3>ส่วนที่ 1 — Node.js driver (30 คะแนน)</h3><p>ส่งไฟล์ <code>hw1.js</code> ที่ใช้ <code>db.js</code> เชื่อมต่อ (รันด้วย <code>node hw1.js</code>) — ทำด้วย mongosh แทนได้สำหรับคนที่ทำ offline</p><ol><li>insert อุปกรณ์อย่างน้อย 6 ชิ้น แต่ละชิ้นมี <code>code</code> (เช่น <code>LAB-001</code>), <code>name</code>, <code>category</code>, <code>room</code>, <code>status</code> (<code>available</code> / <code>borrowed</code> / <code>maintenance</code>), <code>price</code></li><li>หาอุปกรณ์ที่ว่างในห้อง <code>LAB-3</code> แสดงเฉพาะ <code>code</code> และ <code>name</code></li><li>หาอุปกรณ์ราคา 5,000–20,000 บาท</li><li>หาอุปกรณ์หมวด <code>optics</code> หรือ <code>electronics</code> (ใช้ <code>$in</code>)</li><li>เปลี่ยนสถานะอุปกรณ์ 1 ชิ้นเป็น <code>maintenance</code></li><li>ลบอุปกรณ์ 1 ชิ้น</li></ol><h3>ส่วนที่ 2 — app.js (40 คะแนน)</h3><p>ส่งโปรเจกต์ (ไม่รวม <code>node_modules</code>) ที่รันด้วย <code>npm start</code> ได้</p><ol><li>Schema <code>Equipment</code>: <code>code</code> (required, unique), <code>name</code> (required), <code>category</code>, <code>room</code>, <code>status</code> (ใช้ <code>enum</code>, ค่าเริ่มต้น <code>available</code>), <code>price</code> (min 0)</li><li>Routes: <code>GET /equipment</code> (กรองด้วย <code>?status=</code> ได้), <code>GET /equipment/:id</code>, <code>POST /equipment</code>, <code>PATCH /equipment/:id</code>, <code>DELETE /equipment/:id</code></li><li>ข้อมูลผิด (เช่น ไม่มี <code>name</code> หรือ <code>status</code> ไม่อยู่ใน enum) ต้องได้ 400</li></ol><h3>ส่วนที่ 3 — ยืมด้วย transaction (30 คะแนน)</h3><ol><li>Schema <code>Loan</code>: <code>borrower</code> (ชื่อผู้ยืม), <code>equipment</code> (ref ไปที่ Equipment), <code>dueDate</code>, <code>returnedAt</code></li><li><code>POST /loans</code> body <code>{ &quot;borrower&quot;: &quot;สมชาย&quot;, &quot;equipmentId&quot;: &quot;...&quot; }</code> ทำใน transaction เดียว</li><li>เปลี่ยนสถานะอุปกรณ์ <code>available</code> → <code>borrowed</code> <strong>เฉพาะเมื่อยังว่าง</strong> (ไม่ว่าง → 400 และไม่สร้าง loan)</li><li>สร้าง loan พร้อม <code>dueDate</code> = วันนี้ + 7 วัน</li><li><code>POST /loans/:id/return</code> บันทึก <code>returnedAt</code> และเปลี่ยนอุปกรณ์กลับเป็น <code>available</code> (ใน transaction)</li><li>ทดสอบ: ยืมอุปกรณ์ชิ้นเดียวกัน 2 ครั้ง ครั้งที่ 2 ต้องได้ 400 และจำนวน loans ต้องเพิ่มแค่ 1</li></ol><h3>โบนัส — หน้าเว็บ (+10 คะแนน)</h3><p>ดัดแปลง <code>public/index.html</code> ของร้านหนังสือเป็นหน้าเว็บระบบแล็บ แล้วเพิ่ม <code>app.use(express.static('public'))</code> ใน app.js</p><ol><li>ตารางอุปกรณ์จาก <code>GET /equipment</code> พร้อมช่องกรองตาม <code>status</code></li><li>ปุ่ม &quot;ยืม&quot; ในแต่ละแถว เรียก <code>POST /loans</code> — ยืมซ้ำต้องเห็นข้อความ error จาก server บนหน้าเว็บ</li><li>ปุ่ม &quot;คืน&quot; เรียก <code>POST /loans/:id/return</code> แล้วโหลดตารางใหม่ให้เห็นสถานะเปลี่ยน</li></ol><p><strong>คำถามท้ายบท:</strong> ถ้าไม่ใช้ transaction ในข้อ 3.2 แล้วการสร้าง loan ล้มเหลว จะเกิดอะไรขึ้นกับสถานะอุปกรณ์</p></article></section>
+  <footer>สร้างจากโค้ดในโปรเจกต์ด้วย <code>npm run docs</code> · อัปเดต 2026-09-25</footer>
+</main>
+</div>
+<script>
+(() => {
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.copy');
+    if (!btn) return;
+    const text = btn.closest('.file').querySelector('textarea.raw').value;
+    try { await navigator.clipboard.writeText(text); }
+    catch {
+      const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    btn.textContent = 'คัดลอกแล้ว'; btn.classList.add('done');
+    setTimeout(() => { btn.textContent = 'คัดลอก'; btn.classList.remove('done'); }, 1600);
+  });
+  const search = document.querySelector('.search');
+  search.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    document.querySelectorAll('.nav-file').forEach((a) => {
+      a.classList.toggle('hide', q && !(a.dataset.path || a.textContent).toLowerCase().includes(q));
+    });
+  });
+  const root = document.documentElement;
+  try { const t = localStorage.getItem('theme'); if (t) root.dataset.theme = t; } catch {}
+  document.querySelector('.theme').addEventListener('click', () => {
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('theme', root.dataset.theme); } catch {}
+  });
+})();
+</script>
+</body>
+</html>

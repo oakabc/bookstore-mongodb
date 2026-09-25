@@ -1,0 +1,20 @@
+# MongoDB 8.0 แบบ replica set 1 node (transaction ต้องใช้ replica set)
+services:
+  mongo:
+    image: mongo:8.0
+    container_name: bookstore-mongo
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # ครั้งแรกยังไม่มี replica set -> rs.status() error -> สั่ง rs.initiate()
+      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok }"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 5s
+
+volumes:
+  mongo-data:

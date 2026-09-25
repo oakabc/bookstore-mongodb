@@ -1,0 +1,25 @@
+{
+  "name": "bookstore-mongodb",
+  "version": "1.0.0",
+  "description": "ตัวอย่างประกอบการสอน MongoDB ใน 3 ชั่วโมง: Node.js driver, Express + Mongoose และ ACID transaction (ร้านหนังสือ)",
+  "type": "module",
+  "main": "app.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node --watch app.js",
+    "db:up": "docker compose up -d",
+    "docs": "node scripts/build-docs.mjs"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "mongodb": "^7.6.0",
+    "mongoose": "^9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/<account>/bookstore-mongodb"
+  }
+}

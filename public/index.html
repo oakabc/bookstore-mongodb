@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ร้านหนังสือ</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 860px; margin: 24px auto; padding: 0 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border-bottom: 1px solid #ddd; padding: 6px; text-align: left; }
+  input, button { font: inherit; padding: 4px 8px; }
+  .qty { width: 60px; }
+  #msg { padding: 8px 12px; border-radius: 6px; }
+  .ok { background: #e3f4e5; }
+  .err { background: #fbe3e3; }
+</style>
+</head>
+<body>
+<h1>ร้านหนังสือ</h1>
+<p id="msg"></p>
+
+<h2>หนังสือ (GET /books)</h2>
+<input id="tag" placeholder="กรองตาม tag เช่น database">
+<button onclick="refresh()">ค้นหา</button>
+<button onclick="seed()">ใส่ข้อมูลตัวอย่าง</button>
+<table>
+  <thead><tr><th>ชื่อ</th><th>ราคา</th><th>สต็อก</th><th>tags</th><th>จำนวนซื้อ</th><th></th></tr></thead>
+  <tbody id="books"></tbody>
+</table>
+
+<h2>สั่งซื้อ (POST /orders — transaction)</h2>
+<input id="customer" value="สมชาย">
+<button onclick="order()">สั่งซื้อรายการที่ใส่จำนวน</button>
+<ul id="orders"></ul>
+
+<h2>เพิ่มหนังสือ (POST /books)</h2>
+<form id="add">
+  <input name="isbn" placeholder="ISBN">
+  <input name="title" placeholder="ชื่อหนังสือ">
+  <input name="price" type="number" placeholder="ราคา">
+  <input name="stock" type="number" placeholder="สต็อก">
+  <input name="tags" placeholder="tags คั่นด้วย ,">
+  <button>เพิ่ม</button>
+</form>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`); // กันข้อความเป็น HTML
+
+// เรียก API — ถ้า status ไม่ใช่ 2xx ให้ throw ข้อความ error ที่ server ส่งมา
+async function api(method, url, body) {
+  const res = await fetch(url, {
+    method,
+    headers: { 'content-type': 'application/json' },
+    body: body && JSON.stringify(body),
+  });
+  const data = res.status === 204 ? null : await res.json();
+  if (!res.ok) throw new Error(`${res.status} ${data.error}`);
+  return data;
+}
+
+function show(text, ok = true) {
+  $('#msg').textContent = text;
+  $('#msg').className = ok ? 'ok' : 'err';
+}
+
+async function refresh() {
+  const tag = $('#tag').value.trim();
+  const books = await api('GET', tag ? `/books?tag=${encodeURIComponent(tag)}` : '/books');
+  $('#books').innerHTML = books.map((b) => `
+    <tr><td>${esc(b.title)}</td><td>${b.price}</td><td>${b.stock}</td><td>${esc(b.tags.join(', '))}</td>
+      <td><input class="qty" type="number" min="0" value="0" data-id="${b._id}"></td>
+      <td><button onclick="removeBook('${b._id}')">ลบ</button></td></tr>`).join('');
+
+  const orders = await api('GET', '/orders');
+  $('#orders').innerHTML = orders.map((o) =>
+    `<li>${esc(o.customer)}: ${o.items.map((i) => `${esc(i.title)} × ${i.qty}`).join(', ')} = ${o.total} บาท</li>`).join('');
+}
+
+async function run(action, okText) { // ทำงาน → แสดงผล → โหลดตารางใหม่
+  try { show(okText(await action())); } catch (err) { show(err.message, false); }
+  refresh().catch((err) => show(err.message, false));
+}
+
+const seed = () => run(() => api('POST', '/seed'), (books) => `ใส่หนังสือตัวอย่าง ${books.length} เล่ม`);
+const removeBook = (id) => run(() => api('DELETE', `/books/${id}`), () => 'ลบแล้ว');
+
+function order() {
+  const items = [...document.querySelectorAll('.qty')]
+    .filter((input) => Number(input.value) > 0)
+    .map((input) => ({ bookId: input.dataset.id, qty: Number(input.value) }));
+  run(() => api('POST', '/orders', { customer: $('#customer').value, items }),
+      (o) => `สั่งซื้อสำเร็จ รวม ${o.total} บาท`);
+}
+
+$('#add').addEventListener('submit', (e) => {
+  e.preventDefault(); // ไม่ให้ browser reload หน้า
+  const book = Object.fromEntries(new FormData(e.target));
+  for (const key in book) if (book[key] === '') delete book[key]; // ช่องว่าง = ไม่ส่ง
+  book.tags = book.tags ? book.tags.split(',').map((t) => t.trim()) : [];
+  run(() => api('POST', '/books', book), (b) => { e.target.reset(); return `เพิ่ม "${b.title}" แล้ว`; });
+});
+
+refresh().catch((err) => show(err.message, false));
+</script>
+</body>
+</html>
