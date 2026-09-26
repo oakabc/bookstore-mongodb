@@ -64,6 +64,10 @@ npm run dev
    → ขึ้นกล่องแดง `400 สต็อกไม่พอ` และสต็อกของ `เริ่มต้น MongoDB` ยังเป็น 8
 4. เพิ่มหนังสือโดยไม่ใส่ชื่อ → ขึ้น `400 ... ต้องระบุชื่อหนังสือ` (validation จาก Schema)
 
+> ขึ้น **`ติดต่อ API ไม่ได้ (Failed to fetch)`** แปลว่าหน้าเว็บคุยกับ server ไม่ได้ (ไม่เกี่ยวกับ collection — MongoDB สร้าง collection ให้เองตอนบันทึกครั้งแรก)
+> - เปิดหน้าเว็บที่ `http://localhost:3000` เท่านั้น — ห้ามดับเบิลคลิก `public/index.html` หรือเปิดด้วย Live Server
+> - ดู terminal ต้องขึ้น `Bookstore API -> http://localhost:3000` ถ้าขึ้น `เชื่อมต่อ MongoDB ไม่ได้: ...` แปลว่า server ไม่ได้เปิด ให้แก้ `uri` หรือเพิ่ม IP ใน Atlas แล้วรันใหม่
+
 ## ลองเรียก API ด้วย curl
 
 ```bash

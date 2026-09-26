@@ -64,6 +64,12 @@ function show(text, ok = true) {
   $('#msg').className = ok ? 'ok' : 'err';
 }
 
+// TypeError = ต่อ server ไม่ได้ (Failed to fetch) · SyntaxError = ได้หน้า HTML แทน JSON
+function fail(err) {
+  const noServer = err instanceof TypeError || err instanceof SyntaxError;
+  show(noServer ? `ติดต่อ API ไม่ได้ (${err.message}) — รัน npm run dev แล้วเปิดหน้านี้ที่ http://localhost:3000` : err.message, false);
+}
+
 async function refresh() {
   const tag = $('#tag').value.trim();
   const books = await api('GET', tag ? `/books?tag=${encodeURIComponent(tag)}` : '/books');
@@ -78,8 +84,8 @@ async function refresh() {
 }
 
 async function run(action, okText) { // ทำงาน → แสดงผล → โหลดตารางใหม่
-  try { show(okText(await action())); } catch (err) { show(err.message, false); }
-  refresh().catch((err) => show(err.message, false));
+  try { show(okText(await action())); } catch (err) { fail(err); }
+  refresh().catch(fail);
 }
 
 const seed = () => run(() => api('POST', '/seed'), (books) => `ใส่หนังสือตัวอย่าง ${books.length} เล่ม`);
@@ -101,7 +107,7 @@ $('#add').addEventListener('submit', (e) => {
   run(() => api('POST', '/books', book), (b) => { e.target.reset(); return `เพิ่ม "${b.title}" แล้ว`; });
 });
 
-refresh().catch((err) => show(err.message, false));
+refresh().catch(fail);
 </script>
 </body>
 </html>
